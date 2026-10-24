@@ -1,0 +1,935 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Radiação no cotidiano — simulador 3D</title>
+<meta name="description" content="Uma casa e um consultório em 3D: micro-ondas, banana, Wi-Fi, celular, rádio, lâmpada, Sol e raio X. Veja quem ioniza e quem só aquece.">
+<style>
+:root{
+  --bg:#f3f5fb; --card:rgba(255,255,255,.82); --card-solid:#ffffff; --field:#eef1f9;
+  --ink:#0e1525; --muted:#475268; --line:rgba(14,21,37,.12); --track:rgba(14,21,37,.14);
+  --accent:#2350f0; --accent2:#7a3cff; --accent-ink:#ffffff; --glow1:rgba(35,80,240,.16); --glow2:rgba(122,60,255,.12);
+  --warn-bg:#fff3d6; --warn-ink:#5e3500; --warn-line:#d9961b;
+  --b-exp:#0a7a56; --b-calc:#1f4fd1; --b-sim:#944a00; --b-none:#475268; --b-ok:#0a7a56;
+  --stage-bg:radial-gradient(120% 90% at 50% -10%,#f1f5ff 0%,#d9e2f6 60%,#c8d4ee 100%);
+  --scene-edge:#4a5a7a; --shadow:0 18px 50px -24px rgba(20,35,80,.35); --focus:#2350f0;
+  --sans:"Inter","Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,Roboto,sans-serif;
+  --mono:ui-monospace,"Cascadia Code","SF Mono",Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#060912; --card:rgba(17,24,42,.74); --card-solid:#101828; --field:#0b1222;
+    --ink:#eaf0ff; --muted:#a9b6d3; --line:rgba(160,185,255,.16); --track:rgba(160,185,255,.22);
+    --accent:#6ea8ff; --accent2:#a78bfa; --accent-ink:#06101f; --glow1:rgba(70,120,255,.22); --glow2:rgba(150,100,255,.16);
+    --warn-bg:#2b2110; --warn-ink:#ffd98f; --warn-line:#8a6420;
+    --b-exp:#5eead4; --b-calc:#93c5fd; --b-sim:#fcd34d; --b-none:#a9b6d3; --b-ok:#5eead4;
+    --stage-bg:radial-gradient(110% 85% at 50% -10%,#16275a 0%,#0b1330 55%,#070b18 100%);
+    --scene-edge:#8ea6d0; --shadow:0 18px 60px -28px rgba(0,0,0,.8); --focus:#9cc4ff; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#060912; --card:rgba(17,24,42,.74); --card-solid:#101828; --field:#0b1222;
+  --ink:#eaf0ff; --muted:#a9b6d3; --line:rgba(160,185,255,.16); --track:rgba(160,185,255,.22);
+  --accent:#6ea8ff; --accent2:#a78bfa; --accent-ink:#06101f; --glow1:rgba(70,120,255,.22); --glow2:rgba(150,100,255,.16);
+  --warn-bg:#2b2110; --warn-ink:#ffd98f; --warn-line:#8a6420;
+  --b-exp:#5eead4; --b-calc:#93c5fd; --b-sim:#fcd34d; --b-none:#a9b6d3; --b-ok:#5eead4;
+  --stage-bg:radial-gradient(110% 85% at 50% -10%,#16275a 0%,#0b1330 55%,#070b18 100%);
+  --scene-edge:#8ea6d0; --shadow:0 18px 60px -28px rgba(0,0,0,.8); --focus:#9cc4ff; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;min-height:100vh;color:var(--ink);font-family:var(--sans);line-height:1.5;font-size:15px;
+  background:radial-gradient(60% 50% at 8% 0%,var(--glow1),transparent 70%),radial-gradient(50% 45% at 100% 10%,var(--glow2),transparent 70%),var(--bg);
+  background-attachment:fixed;-webkit-font-smoothing:antialiased}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px;border-radius:8px}
+a{color:var(--accent)}
+.skip{position:absolute;left:-999px;top:0;background:var(--accent);color:var(--accent-ink);padding:.5rem 1rem;z-index:50;border-radius:0 0 10px 0}
+.skip:focus{left:0}
+[hidden]{display:none!important}
+
+header.top{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem 1rem;margin:.75rem .75rem 0;padding:.6rem .9rem;
+  border:1px solid var(--line);border-radius:18px;background:var(--card);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:var(--shadow)}
+.logo{width:30px;height:30px;border-radius:50%;flex:none;background:conic-gradient(from 210deg,var(--accent),var(--accent2),#33d6ff,var(--accent));
+  box-shadow:0 0 0 4px var(--glow1),0 0 22px var(--accent);position:relative}
+.logo::after{content:"";position:absolute;inset:8px;border-radius:50%;background:var(--card-solid)}
+header.top h1{font-size:1.15rem;margin:0;font-weight:750;letter-spacing:-.01em}
+header.top h1 span{background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+header.top p{margin:0;color:var(--muted);font-size:.82rem;flex:1 1 260px}
+.chip{display:inline-flex;align-items:center;gap:.4rem;font:inherit;font-size:.78rem;font-weight:600;cursor:pointer;color:var(--ink);text-decoration:none;
+  border:1px solid var(--line);background:var(--card-solid);padding:.38rem .8rem;border-radius:999px;transition:transform .15s,border-color .15s}
+.chip:hover{border-color:var(--accent);transform:translateY(-1px)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.pill-note{font-size:.72rem;font-weight:700;color:var(--warn-ink);background:var(--warn-bg);border:1px solid var(--warn-line);padding:.2rem .6rem;border-radius:999px}
+
+.layout{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(340px,.8fr);gap:.9rem;padding:.9rem .75rem;align-items:start;max-width:1800px;margin:0 auto}
+.stagewrap{position:sticky;top:.75rem}
+.stage{position:relative;height:calc(100vh - 6.4rem);min-height:420px;border:1px solid var(--line);border-radius:26px;background:var(--stage-bg);overflow:hidden;box-shadow:var(--shadow)}
+.stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+.stage canvas:active{cursor:grabbing}
+.ov{position:absolute;font-size:.72rem;pointer-events:none;color:var(--ink)}
+.glass{background:var(--card);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:14px}
+.stamp{left:.7rem;top:.7rem;padding:.3rem .65rem;max-width:calc(100% - 11rem);font-weight:600;color:var(--muted)}
+.hint{right:.7rem;bottom:.7rem;padding:.25rem .6rem;color:var(--muted);border-radius:999px}
+.tools{right:.7rem;top:.7rem;display:flex;gap:.4rem;pointer-events:auto}
+.legend{left:.7rem;bottom:.7rem;padding:.55rem .75rem .6rem;width:min(330px,calc(100% - 9.5rem))}
+.legend .ttl{font-weight:700;margin-bottom:.35rem;line-height:1.25}
+.legend .ttl small{display:block;font-weight:500;color:var(--muted)}
+.legend dl{display:grid;grid-template-columns:1fr auto;gap:.15rem .8rem;margin:0}
+.legend dt{color:var(--muted)} .legend dd{margin:0;font-family:var(--mono);font-weight:700;text-align:right}
+.lbl{position:absolute;left:0;top:0;font-size:.7rem;padding:.15rem .5rem;white-space:nowrap;pointer-events:none;display:none;
+  background:var(--card);backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:999px;font-weight:600}
+.nogl{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;padding:2rem;color:var(--muted)}
+
+.panels{display:flex;flex-direction:column;gap:.9rem;min-width:0}
+.card{background:var(--card);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--line);border-radius:22px;padding:1rem 1.05rem;box-shadow:var(--shadow)}
+.card h2{font-size:1rem;margin:0 0 .6rem;font-weight:700}
+.card h3{font-size:.72rem;margin:1rem 0 .35rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700}
+.ctl{margin:.7rem 0}
+.ctl label,.ctl legend{display:flex;justify-content:space-between;gap:.5rem;font-size:.84rem;font-weight:600;margin-bottom:.3rem;padding:0}
+.ctl .unit{color:var(--muted);font-weight:500;font-size:.74rem;text-align:right}
+.pair{display:grid;grid-template-columns:1fr 6.4rem;gap:.8rem;align-items:center}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:24px;background:transparent;margin:0;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:999px;background:linear-gradient(90deg,var(--accent),var(--accent2)) 0/var(--p,0%) 100% no-repeat,var(--track)}
+input[type=range]::-moz-range-track{height:6px;border-radius:999px;background:linear-gradient(90deg,var(--accent),var(--accent2)) 0/var(--p,0%) 100% no-repeat,var(--track)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;margin-top:-7px;border-radius:50%;background:#fff;border:3px solid var(--accent);box-shadow:0 2px 8px rgba(0,0,0,.3)}
+input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid var(--accent);box-shadow:0 2px 8px rgba(0,0,0,.3)}
+input[type=number],select{font-family:var(--mono);font-size:.86rem;padding:.4rem .6rem;border:1px solid var(--line);background:var(--field);color:var(--ink);width:100%;border-radius:12px}
+select{font-family:var(--sans)}
+input[aria-invalid="true"]{outline:2px solid #d0261a}
+.seg{display:flex;gap:.3rem;background:var(--field);padding:.25rem;border-radius:999px;border:1px solid var(--line);flex-wrap:wrap}
+.seg label{flex:1;margin:0;text-align:center;cursor:pointer;position:relative;display:block;font-weight:600;font-size:.8rem;white-space:nowrap}
+.seg input{position:absolute;opacity:0;inset:0;cursor:pointer;margin:0}
+.seg span{display:block;padding:.4rem .6rem;border-radius:999px}
+.seg input:checked+span{background:linear-gradient(90deg,var(--accent),var(--accent2));color:var(--accent-ink)}
+.seg label:has(input:focus-visible){outline:3px solid var(--focus);outline-offset:2px;border-radius:999px}
+fieldset{border:0;margin:.7rem 0 0;padding:0}
+.btnrow{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.6rem}
+.btn{font:inherit;font-size:.82rem;font-weight:650;cursor:pointer;border:1px solid var(--line);background:var(--card-solid);color:var(--ink);padding:.5rem 1rem;border-radius:999px}
+.btn.pri{background:linear-gradient(90deg,var(--accent),var(--accent2));color:var(--accent-ink);border-color:transparent}
+.btn:hover{filter:brightness(1.08)}
+
+.rows{display:flex;flex-direction:column}
+.row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.1rem .8rem;padding:.55rem 0;border-bottom:1px solid var(--line);align-items:baseline}
+.row:last-child{border-bottom:0}
+.row .k{font-size:.85rem;font-weight:550}
+.row .k small{display:block;color:var(--muted);font-size:.74rem;font-weight:400}
+.row .val{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:.2rem}
+.v{font-family:var(--mono);font-size:.98rem;font-weight:700;font-variant-numeric:tabular-nums}
+.badge{font-size:.66rem;font-weight:650;padding:.05rem .5rem;border-radius:999px;white-space:nowrap;line-height:1.55;color:var(--bc,var(--ink));
+  background:color-mix(in srgb,var(--bc) 14%,transparent);border:1px solid color-mix(in srgb,var(--bc) 55%,transparent)}
+.b-exp{--bc:var(--b-exp)} .b-calc{--bc:var(--b-calc)} .b-sim{--bc:var(--b-sim)} .b-none{--bc:var(--b-none)} .b-ok{--bc:var(--b-ok)}
+.b-sim{border-style:dashed} .b-none{border-style:dotted}
+.alert{background:var(--warn-bg);color:var(--warn-ink);border:1px solid var(--warn-line);border-radius:14px;padding:.6rem .8rem;font-size:.82rem;margin:.6rem 0}
+.alert.info{background:var(--field);color:var(--ink);border-color:var(--line)}
+.note{font-size:.78rem;color:var(--muted);margin:.5rem 0}
+.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.55rem;margin-bottom:.4rem}
+.kpi{border:1px solid var(--line);border-radius:16px;padding:.6rem .7rem;background:var(--field);min-width:0}
+.kpi .l{font-size:.7rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.kpi .n{font-family:var(--mono);font-size:1.3rem;font-weight:750;line-height:1.2;margin:.15rem 0;overflow-wrap:anywhere}
+.kpi .s{font-size:.68rem;color:var(--muted);margin-bottom:.25rem}
+.kpi .badge{white-space:normal;display:inline-block;line-height:1.3;padding:.1rem .45rem}
+svg.chart{width:100%;height:auto;display:block;background:var(--field);border:1px solid var(--line);border-radius:16px;margin-top:.5rem}
+svg.chart text{font-family:var(--mono);font-size:9.5px;fill:var(--muted)}
+svg.chart .ttl{fill:var(--ink);font-weight:700;font-family:var(--sans)}
+.c-axis{stroke:var(--muted);stroke-width:1;fill:none}
+.c-grid{stroke:var(--line);stroke-width:.8}
+.c-line{stroke:var(--accent);stroke-width:2.2;fill:none}
+.c-sim{stroke:var(--accent);stroke-width:2;fill:none;stroke-dasharray:5 3}
+.c-pt{fill:var(--accent2);stroke:var(--card-solid);stroke-width:1.5}
+table{border-collapse:separate;border-spacing:0;width:100%;font-size:.8rem;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+th,td{padding:.45rem .6rem;text-align:left;border-bottom:1px solid var(--line)}
+tr:last-child td{border-bottom:0}
+th{background:var(--field);font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+td.m{font-family:var(--mono);font-weight:700}
+ul.lim{margin:.2rem 0 0;padding-left:1.1rem;font-size:.84rem}
+ul.lim li{margin:.45rem 0}
+footer{padding:1rem;text-align:center;color:var(--muted);font-size:.76rem}
+
+@media (max-width:960px){
+  .layout{grid-template-columns:minmax(0,1fr);padding:.5rem}
+  header.top{margin:.5rem .5rem 0}
+  .stagewrap{top:.4rem;z-index:5}
+  .stage{height:44vh;min-height:280px;border-radius:22px}
+  .legend{width:min(250px,calc(100% - 1.4rem));font-size:.66rem}
+  .hint{display:none}
+  .stamp{max-width:calc(100% - 9rem);font-size:.64rem}
+  .kpi .n{font-size:1.05rem}
+}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.chip{transition:none}}
+
+</style>
+<style>
+.stagewrap{display:flex;flex-direction:column;gap:.6rem}
+.stage{height:calc(100vh - 10.6rem)}
+.modes{display:flex;gap:.35rem;padding:.3rem;background:var(--card);border:1px solid var(--line);border-radius:18px;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:var(--shadow)}
+.modes button{flex:1;font:inherit;font-size:.86rem;font-weight:700;color:var(--muted);background:transparent;border:0;border-radius:14px;padding:.55rem .6rem;cursor:pointer;display:flex;gap:.5rem;align-items:center;justify-content:center;line-height:1.15;text-align:left}
+.modes button small{display:block;font-weight:500;font-size:.68rem;opacity:.85}
+.modes .k{font-family:var(--mono);font-size:.72rem;border:1px solid var(--line);border-radius:8px;padding:.05rem .4rem;flex:none}
+.modes button[aria-pressed="true"]{background:linear-gradient(90deg,var(--accent),var(--accent2));color:var(--accent-ink)}
+.modes button[aria-pressed="true"] .k{border-color:currentColor}
+.fade{position:absolute;inset:0;background:var(--bg);opacity:0;pointer-events:none;transition:opacity .18s}
+.fade.on{opacity:.95}
+.lbl.ion{color:#d0261a;border-color:#d0261a}
+.lbl.non{color:#0a7a56;border-color:#0a7a56}
+.lbl.sel{border-width:2px;font-weight:800}
+.srclist{display:flex;flex-direction:column;gap:.35rem}
+.srclist h3{margin:.6rem 0 .1rem}
+.srclist button{display:grid;grid-template-columns:auto 1fr auto;gap:.6rem;align-items:center;text-align:left;font:inherit;font-size:.84rem;cursor:pointer;color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:14px;padding:.5rem .7rem}
+.srclist button[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 35%,transparent)}
+.srclist .e{font-family:var(--mono);font-size:.74rem;color:var(--muted)}
+.srclist .dot{width:.8rem;height:.8rem;border-radius:50%}
+details.faq{border:1px solid var(--line);border-radius:14px;padding:.55rem .8rem;background:var(--field);margin:.4rem 0}
+details.faq summary{cursor:pointer;font-weight:650;font-size:.86rem}
+details.faq p{margin:.5rem 0 0;font-size:.82rem;color:var(--muted)}
+.compare{display:grid;grid-template-columns:1fr auto;gap:.2rem .6rem;align-items:center;font-size:.8rem;margin:.5rem 0}
+.compare .bar{height:10px;border-radius:999px;background:var(--track);position:relative;overflow:hidden}
+.compare .bar i{position:absolute;left:0;top:0;bottom:0;border-radius:999px}
+.compare .e{font-family:var(--mono);font-size:.74rem;color:var(--muted)}
+.keyline{display:flex;flex-wrap:wrap;gap:.6rem 1rem;font-size:.74rem}
+.keyline span{display:inline-flex;gap:.35rem;align-items:center}
+.keyline i{width:.75rem;height:.75rem;border-radius:50%;display:inline-block}
+@media (max-width:960px){.stage{height:42vh}.modes button small{display:none}.modes button{font-size:.76rem;padding:.45rem .3rem}}
+</style>
+</head>
+<body>
+<a class="skip" href="#painel">Ir para controles e resultados</a>
+<header class="top">
+  <div class="logo" aria-hidden="true"></div>
+  <h1><span>Radiação no cotidiano</span> · o que é e o que não é perigoso</h1>
+  <p>Uma casa e um consultório em 3D. Clique em um objeto para ver que radiação ele emite e se ela ioniza.</p>
+  <span class="pill-note">ilustração conceitual · nada aqui é medição</span>
+  <a class="chip" href="index.html">← Todos os simuladores</a>
+  <button id="theme" class="chip" type="button" aria-pressed="false">Tema escuro</button>
+</header>
+
+<main class="layout">
+  <div class="stagewrap">
+    <div class="modes" role="group" aria-label="Escolha da visão">
+      <button type="button" data-mode="casa" aria-pressed="true"><span class="k">1</span><span>Casa e consultório<small>clique nos objetos</small></span></button>
+      <button type="button" data-mode="oven" aria-pressed="false"><span class="k">2</span><span>Micro-ondas por dentro<small>aquece, mas não ioniza</small></span></button>
+    </div>
+    <section class="stage" id="stage" aria-label="Cena 3D">
+      <canvas id="gl" tabindex="0" role="img" aria-label="Cena 3D de radiação no cotidiano"></canvas>
+      <div id="labels"></div>
+      <div class="nogl" id="nogl">WebGL indisponível neste navegador. Os cálculos ao lado continuam funcionando.</div>
+      <div class="ov glass stamp" id="stamp"></div>
+      <div class="ov tools"><button type="button" class="chip" id="reset">Câmera</button></div>
+      <div class="ov glass legend" id="legend"></div>
+      <div class="ov glass hint">clique nos objetos · arraste: girar · rolar ou pinça: zoom</div>
+      <div class="fade" id="fade"></div>
+    </section>
+  </div>
+
+  <div class="panels" id="painel">
+    <section class="card" data-modes="casa" aria-labelledby="h-obj">
+      <h2 id="h-obj">Objetos da cena</h2>
+      <div class="keyline" aria-label="Legenda de cores"><span><i style="background:#2aa6a0"></i>não ionizante: ondas verdes</span><span><i style="background:#b07cff"></i>ultravioleta: borda</span><span><i style="background:#e5533d"></i>ionizante: partículas vermelhas</span></div>
+      <div class="srclist" id="srclist"></div>
+      <h3>Controles</h3>
+      <div class="btnrow"><button type="button" class="btn" id="tg-rad" aria-pressed="true">Ocultar a radiação</button><button type="button" class="btn pri" id="fire">Disparar raio X</button><button type="button" class="btn" id="tg-nat" aria-pressed="true">Ocultar fundo natural</button></div>
+    </section>
+
+    <section class="card" data-modes="oven" aria-labelledby="h-oven">
+      <h2 id="h-oven">Micro-ondas</h2>
+      <div id="sl-oven"></div>
+      <div class="btnrow"><button type="button" class="btn pri" id="play">Aquecer</button><button type="button" class="btn" id="stop">Zerar</button></div>
+      <p class="note" id="oven-note"></p>
+    </section>
+
+    <section class="card" aria-labelledby="h-res">
+      <h2 id="h-res">Resultados</h2>
+      <div class="kpis" id="kpis"></div>
+      <div class="alert info" id="status"></div>
+      <div class="rows" id="rows"></div>
+      <div id="extra"></div>
+    </section>
+
+    <section class="card" data-modes="casa" aria-labelledby="h-gr">
+      <h2 id="h-gr">Onde ele está na régua</h2>
+      <div id="ruler"></div>
+      <h3>Doses de radiação ionizante do dia a dia</h3>
+      <div id="dosechart"></div>
+      <p class="note">Gráficos de apoio em escala logarítmica. Rádio, Wi-Fi, celular e micro-ondas não aparecem nas doses: não são ionizantes, e a grandeza deles é outra (SAR, em W/kg).</p>
+    </section>
+
+    <section class="card" aria-labelledby="h-faq">
+      <h2 id="h-faq">Mitos e fatos</h2>
+      <details class="faq"><summary>O micro-ondas deixa a comida radioativa?</summary><p>Não. O micro-ondas usa ondas de rádio de 2,45 GHz, que não têm energia para ionizar nem para alterar núcleos. A comida só esquenta: as moléculas de água giram e se atritam. Quando o aparelho é desligado, a emissão para.</p></details>
+      <details class="faq"><summary>Muitos fótons fracos não somam um fóton forte?</summary><p>Não no dia a dia. Ionizar é um evento de <strong>um fóton</strong> contra <strong>um átomo</strong>: o fóton precisa ter, sozinho, energia suficiente. Muitos fótons fracos não se acumulam num forte; eles apenas depositam calor. (Em lasers de intensidade extrema existem processos de vários fótons, longe do cotidiano.)</p></details>
+      <details class="faq"><summary>Então não ionizante significa inofensivo?</summary><p>Não. Significa que não ioniza. Em intensidade suficiente, ondas de rádio e micro-ondas <strong>aquecem</strong> tecidos, e o ultravioleta causa queimadura solar por reações fotoquímicas, mesmo ficando abaixo de 10 eV. Por isso existem limites de exposição.</p></details>
+      <details class="faq"><summary>Por que a tela da porta do micro-ondas não deixa a onda sair?</summary><p>A onda tem cerca de 12 cm; os furos da tela têm cerca de 1 a 2 mm, muito menores. Um furo muito menor que o comprimento de onda é "invisível" para a onda: a tela se comporta como uma parede metálica. Já a luz visível, de 0,0005 mm, passa pelos furos, e você vê a comida.</p></details>
+      <details class="faq"><summary>A banana é radioativa?</summary><p>Um pouco, porque contém potássio-40, um isótopo natural do potássio. A dose de uma banana é minúscula (cerca de 0,1 µSv) e serve só como comparação lúdica [a verificar]. Seu próprio corpo também tem potássio-40.</p></details>
+    </section>
+
+    <section class="card" aria-labelledby="h-eq">
+      <h2 id="h-eq">Como é calculado</h2>
+      <ul class="lim">
+        <li><strong>Energia do fóton:</strong> E = h·f = h·c/λ, com h = 4,1357 × 10⁻¹⁵ eV·s. Em atalho: E(eV) = 1 239,84 / λ(nm).</li>
+        <li><strong>Comprimento de onda:</strong> λ = c/f. A 2,45 GHz, λ = 12,2 cm.</li>
+        <li><strong>Aquecimento no micro-ondas:</strong> ΔT = P·t / (m·c), com c = 4 186 J/(kg·K) para água. Premissa: toda a potência vira calor na água, sem perdas.</li>
+        <li><strong>Fótons por segundo:</strong> P / E_fóton. Muitos, e cada um fraco.</li>
+      </ul>
+      <h3>Como ler as etiquetas</h3>
+      <ul class="lim">
+        <li><span class="badge b-ok">✓ referência</span> dado de fonte oficial ou de resumo conferido; <span class="badge b-calc">ƒ calculado</span> equação mostrada aqui; <span class="badge b-sim">≈ ilustrativo</span> aparência da cena; <span class="badge b-none">∅ a verificar</span> afirmação ainda sem fonte conferida.</li>
+      </ul>
+      <h3>Limitações</h3>
+      <ul class="lim">
+        <li>As ondas e as partículas desenhadas são <strong>ilustração</strong>: o tamanho, a velocidade e a intensidade não são reais.</li>
+        <li>As doses são <strong>faixas típicas</strong> e variam com o país, o aparelho e o protocolo; use só como ordem de grandeza.</li>
+        <li>O limite de 10 eV é convenção; moléculas diferentes ionizam em energias diferentes.</li>
+        <li>No micro-ondas, o campo é esquemático; não há mudança de fase (ebulição), perdas nem distribuição real de calor.</li>
+        <li>A "banana" é uma unidade lúdica de comparação, não um padrão de radioproteção.</li>
+        <li>Educacional; não substitui avaliação de radioproteção nem aconselhamento médico.</li>
+      </ul>
+    </section>
+  </div>
+</main>
+<footer>Cherenkov · simulador educacional · parte da coleção de simuladores 3D</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>window.THREE||document.write('<script src="assets/three.min.js"><\/script>')</script>
+<script>
+"use strict";
+/* Biblioteca compartilhada dos simuladores: tema, formatação, etiquetas de tipo,
+   controles deslizantes e palco 3D (câmera orbital própria, rótulos HTML). */
+const Lab = (() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+
+  /* ---- formatação pt-BR ---- */
+  const cache = {};
+  const nf = d => cache[d] || (cache[d] = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: d }));
+  const num = (x, d = 2) => (x === null || x === undefined || !isFinite(x)) ? '—' : nf(d).format(x);
+  const SUP = { '0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','-':'⁻' };
+  const sci = (x, d = 2) => {
+    if (!isFinite(x)) return '—'; if (x === 0) return '0';
+    const [m, e] = x.toExponential(d).split('e');
+    return `${m.replace('.', ',')} × 10${String(parseInt(e, 10)).split('').map(c => SUP[c] || c).join('')}`;
+  };
+
+  /* ---- etiquetas de tipo ---- */
+  const TYPES = {
+    exp:  { cls: 'b-exp',  glyph: '■', text: 'experimental' },
+    calc: { cls: 'b-calc', glyph: 'ƒ', text: 'calculado' },
+    sim:  { cls: 'b-sim',  glyph: '≈', text: 'simulado/ilustrativo' },
+    ref:  { cls: 'b-ok',   glyph: '✓', text: 'dado de referência' },
+    none: { cls: 'b-none', glyph: '∅', text: 'sem dados' }
+  };
+  const badge = (t, text) => `<span class="badge ${TYPES[t].cls}">${TYPES[t].glyph} ${(text || TYPES[t].text).replace(/^[■ƒ≈✓∅]\s*/, '')}</span>`;
+  const row = (k, sub, v, t, tText) =>
+    `<div class="row"><div class="k">${k}${sub ? `<small>${sub}</small>` : ''}</div><div class="val"><span class="v">${v}</span>${badge(t, tText)}</div></div>`;
+
+  /* ---- tema ---- */
+  function theme(onChange){
+    const root = document.documentElement, btn = $('#theme');
+    let saved = null; try { saved = localStorage.getItem('cherenkov-theme'); } catch (e) {}
+    if (saved) root.setAttribute('data-theme', saved);
+    const isDark = () => root.getAttribute('data-theme') === 'dark' || (!root.getAttribute('data-theme') && matchMedia('(prefers-color-scheme: dark)').matches);
+    const sync = () => { const d = isDark(); btn.setAttribute('aria-pressed', d); btn.textContent = d ? 'Tema claro' : 'Tema escuro'; if (onChange) onChange(d); };
+    btn.addEventListener('click', () => {
+      const n = isDark() ? 'light' : 'dark'; root.setAttribute('data-theme', n);
+      try { localStorage.setItem('cherenkov-theme', n); } catch (e) {}
+      sync();
+    });
+    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', sync);
+    sync();
+    return isDark;
+  }
+
+  /* ---- controle deslizante + campo numérico ---- */
+  const sig = x => Number(x.toPrecision(3));
+  const setP = r => r.style.setProperty('--p', ((r.value - r.min) / (r.max - r.min) * 100) + '%');
+  function slider(host, c, onChange){
+    const toS = v => c.log ? Math.round(Math.log(v / c.min) / Math.log(c.max / c.min) * 1000) : v;
+    const fromS = s => c.log ? sig(c.min * Math.pow(c.max / c.min, s / 1000)) : +s;
+    $(host).insertAdjacentHTML('beforeend', `
+      <div class="ctl">
+        <label for="n-${c.id}">${c.label} <span class="unit">${c.unit || ''}${c.hint ? ' · ' + c.hint : ''}</span></label>
+        <div class="pair">
+          <input type="range" id="r-${c.id}" aria-label="${c.label}, controle deslizante" min="${c.log ? 0 : c.min}" max="${c.log ? 1000 : c.max}" step="${c.log ? 1 : c.step}" value="${toS(c.value)}">
+          <input type="number" id="n-${c.id}" inputmode="decimal" min="${c.min}" max="${c.max}" step="${c.step || 'any'}" value="${c.value}">
+        </div>
+      </div>`);
+    const r = $('#r-' + c.id), n = $('#n-' + c.id); setP(r);
+    const api = {
+      value: c.value,
+      set(v){ api.value = v; n.value = v; r.value = toS(v); setP(r); n.removeAttribute('aria-invalid'); onChange(v); }
+    };
+    r.addEventListener('input', () => { api.value = fromS(r.value); n.value = api.value; setP(r); n.removeAttribute('aria-invalid'); onChange(api.value); });
+    n.addEventListener('input', () => {
+      const v = parseFloat(n.value);
+      if (isFinite(v) && v >= c.min && v <= c.max){ api.value = v; r.value = toS(v); setP(r); n.removeAttribute('aria-invalid'); onChange(v); }
+      else n.setAttribute('aria-invalid', 'true');
+    });
+    n.addEventListener('change', () => { let v = parseFloat(n.value); if (!isFinite(v)) v = api.value; api.set(Math.min(Math.max(v, c.min), c.max)); });
+    return api;
+  }
+
+  /* ---- palco 3D ---- */
+  function stage(opts){
+    const o = Object.assign({ theta: 0.6, phi: 1.15, radius: 14, target: [0, 0, 0], minR: 4, maxR: 60, fov: 40 }, opts);
+    const canvas = $('#gl'), el = $('#stage'), labelHost = $('#labels');
+    let renderer;
+    try { renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true }); }
+    catch (e){ $('#nogl').style.display = 'flex'; return null; }
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.setClearColor(0x000000, 0);
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(o.fov, 1, 0.05, 500);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+    scene.add(new THREE.HemisphereLight(0xdfe9ff, 0x445066, 0.35));
+    const key = new THREE.DirectionalLight(0xffffff, 0.9); key.position.set(6, 14, 9); scene.add(key);
+    const orbit = { theta: o.theta, phi: o.phi, radius: o.radius, target: new THREE.Vector3(...o.target) };
+    const goal = { theta: o.theta, phi: o.phi, radius: o.radius, target: new THREE.Vector3(...o.target) };
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const labels = new Map();
+    const api = { THREE, scene, camera, renderer, canvas, orbit, goal, reduced, dark: false, onTick: null, onPick: null };
+
+    function resize(){ const w = el.clientWidth, h = el.clientHeight; if (!w || !h) return; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+    new ResizeObserver(resize).observe(el); resize();
+
+    const zoom = f => { goal.radius = Math.min(Math.max(goal.radius * f, o.minR), o.maxR); };
+    const ptrs = new Map(); let pinch = 0, down = null;
+    canvas.addEventListener('pointerdown', e => { canvas.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); down = { moved: 0, t: performance.now() };
+      if (ptrs.size === 2){ const [a, b] = [...ptrs.values()]; pinch = Math.hypot(a.x - b.x, a.y - b.y); } });
+    canvas.addEventListener('pointermove', e => {
+      const p = ptrs.get(e.pointerId); if (!p) return;
+      const dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY; if (down) down.moved += Math.abs(dx) + Math.abs(dy);
+      if (ptrs.size === 1){ goal.theta -= dx * 0.008; goal.phi = Math.min(Math.max(goal.phi - dy * 0.008, 0.12), Math.PI - 0.12); }
+      else if (ptrs.size === 2){ const [a, b] = [...ptrs.values()], d = Math.hypot(a.x - b.x, a.y - b.y); if (pinch > 0) zoom(pinch / d); pinch = d; }
+    });
+    const up = e => { if (down && down.moved < 6 && performance.now() - down.t < 500 && api.onPick) api.onPick(e); ptrs.delete(e.pointerId); pinch = 0; };
+    canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', e => { ptrs.delete(e.pointerId); pinch = 0; });
+    canvas.addEventListener('wheel', e => { e.preventDefault(); zoom(Math.exp(e.deltaY * 0.0012)); }, { passive: false });
+    canvas.addEventListener('keydown', e => {
+      const k = e.key, s = 0.09; let used = true;
+      if (k === 'ArrowLeft') goal.theta -= s; else if (k === 'ArrowRight') goal.theta += s;
+      else if (k === 'ArrowUp') goal.phi = Math.max(goal.phi - s, 0.12); else if (k === 'ArrowDown') goal.phi = Math.min(goal.phi + s, Math.PI - 0.12);
+      else if (k === '+' || k === '=') zoom(0.9); else if (k === '-' || k === '_') zoom(1.1); else used = false;
+      if (used) e.preventDefault();
+    });
+    api.resetCamera = () => { goal.theta = o.theta; goal.phi = o.phi; goal.radius = o.radius; goal.target.set(...o.target); };
+
+    api.label = (id, cls) => { const d = document.createElement('div'); d.className = 'lbl ' + (cls || ''); labelHost.appendChild(d); labels.set(id, d); return d; };
+    const v3 = new THREE.Vector3();
+    api.place = (id, pos, show, text) => {
+      const node = labels.get(id); if (!node) return;
+      if (!show){ node.style.display = 'none'; return; }
+      v3.copy(pos).project(camera);
+      if (v3.z > 1){ node.style.display = 'none'; return; }
+      if (text !== undefined && node.textContent !== text) node.textContent = text;
+      node.style.display = 'block';
+      const px = (v3.x * 0.5 + 0.5) * el.clientWidth, py = (-v3.y * 0.5 + 0.5) * el.clientHeight;
+      node.style.transform = `translate(${Math.max(4, Math.min(px + 8, el.clientWidth - node.offsetWidth - 4))}px,${py}px) translateY(-50%)`;
+    };
+    api.hideLabels = () => labels.forEach(l => { l.style.display = 'none'; });
+
+    let last = performance.now(), clock = 0;
+    function loop(now){
+      requestAnimationFrame(loop);
+      if (document.hidden || !el.clientWidth) return;
+      const dt = Math.min(0.05, (now - last) / 1000); last = now; clock += dt;
+      const k = 1 - Math.exp(-dt * 9);
+      orbit.theta += (goal.theta - orbit.theta) * k; orbit.phi += (goal.phi - orbit.phi) * k; orbit.radius += (goal.radius - orbit.radius) * k; orbit.target.lerp(goal.target, k);
+      const sp = Math.sin(orbit.phi);
+      camera.position.set(orbit.target.x + orbit.radius * sp * Math.sin(orbit.theta), orbit.target.y + orbit.radius * Math.cos(orbit.phi), orbit.target.z + orbit.radius * sp * Math.cos(orbit.theta));
+      camera.lookAt(orbit.target);
+      api.hideLabels();
+      if (api.onTick) api.onTick(dt, clock);
+      renderer.render(scene, camera);
+      if (api.onLabels) api.onLabels();
+    }
+    requestAnimationFrame(loop);
+    return api;
+  }
+
+  return { $, $$, num, sci, badge, row, TYPES, theme, slider, stage, setP };
+})();
+
+</script>
+<script>
+"use strict";
+const $ = Lab.$, $$ = Lab.$$;
+/* ===== 1. DADOS ===== */
+const H = 4.135667696e-15;        // eV·s (SI exato desde 2019)
+const C = 299792458;              // m/s
+const EV_J = 1.602176634e-19;     // J por eV
+const ION = 10;                   // eV, convenção de fronteira ionizante / não ionizante
+const CW = 4186;                  // J/(kg·K) calor específico da água (livro-texto)
+
+/* objetos da cena. ion: 'non' | 'uv' | 'ion'. Frequências típicas: a verificar. */
+const ITEMS = [
+  { id:'radio', nome:'Rádio FM', f:100e6, ion:'non', tipo:'Ondas de rádio',
+    nota:'Ondas de rádio de 100 MHz. Sem efeito conhecido nas intensidades do dia a dia.', grand:null },
+  { id:'wifi', nome:'Roteador Wi-Fi', f:2.4e9, ion:'non', tipo:'Micro-ondas (rádio de alta frequência)',
+    nota:'Potência muito baixa; não ioniza. A grandeza de exposição é o SAR.', grand:{ k:'sar', v:0.210, txt:'SAR médio medido, Wi-Fi: 0,210 W/kg (limite cabeça e tronco: 2 W/kg)' } },
+  { id:'cel', nome:'Celular', f:0.9e9, ion:'non', tipo:'Ondas de rádio (celular, 900 MHz típico)',
+    nota:'Não ioniza; o efeito conhecido é um pequeno aquecimento, limitado pelo SAR.', grand:{ k:'sar', v:0.291, txt:'SAR médio medido: 0,29 W/kg (4G) a 0,43 W/kg (3G); limite 2 W/kg' } },
+  { id:'mo', nome:'Micro-ondas', f:2.45e9, ion:'non', tipo:'Micro-ondas (2,45 GHz)',
+    nota:'Aquece por agitação de moléculas de água. A tela da porta e a carcaça mantêm a onda dentro. Não ioniza e não deixa a comida radioativa.',
+    grand:{ k:'leak', txt:'Limite de vazamento: 5 mW/cm² a 5 cm; média medida ≈ 1% do limite (BfS)' } },
+  { id:'lamp', nome:'Lâmpada', lam:550e-9, ion:'non', tipo:'Luz visível (550 nm)',
+    nota:'Luz visível: base da visão, não ioniza.', grand:null },
+  { id:'sol', nome:'Sol (ultravioleta)', lam:300e-9, ion:'uv', tipo:'Ultravioleta B (300 nm)',
+    nota:'Fica abaixo de 10 eV, mas pode danificar o DNA por absorção (fotoquímica): é o mecanismo da queimadura solar. Não ioniza.', grand:null },
+  { id:'xr', nome:'Aparelho de raio X', E:6e4, ion:'ion', tipo:'Raios X (≈ 60 keV, valor típico)',
+    nota:'Ionizante. O exame é justificado pelo benefício clínico, com a menor dose razoável.',
+    grand:{ k:'mSv', min:0.06, max:0.1, txt:'Raio X de tórax: 0,06 a 0,1 mSv' } },
+  { id:'ban', nome:'Banana', E:1.46e6, ion:'ion', tipo:'Radiação do potássio-40 (natural)',
+    nota:'A banana contém potássio-40, que emite partículas e gama (cerca de 1,46 MeV no gama). A dose é minúscula; é uma comparação lúdica.',
+    grand:{ k:'mSv', min:1e-4, max:1e-4, txt:'Cerca de 0,1 µSv por banana (lúdico, a verificar)' } },
+  { id:'nat', nome:'Fundo natural (raios cósmicos e solo)', ion:'ion', tipo:'Raios cósmicos, solo, ar e o próprio corpo',
+    nota:'Presente em qualquer lugar. A média mundial é de 2,4 mSv por ano, com grande variação por região.',
+    grand:{ k:'mSv', min:2.4, max:2.4, txt:'Média mundial: 2,4 mSv por ano (UNSCEAR 2008)' } }
+].map(s => {
+  if (s.f || s.lam || s.E){
+    const f = s.f ?? (s.lam ? C / s.lam : s.E / H);
+    s.f = f; s.E = H * f; s.lamM = C / f;
+  }
+  return s;
+});
+const ITEM = id => ITEMS.find(x => x.id === id);
+const DOSES = [
+  { id:'ban', nome:'Uma banana (lúdico)',     min:1e-4, max:1e-4, tipo:'fun', ref:'none' },
+  { id:'xr',  nome:'Raio X de tórax',          min:0.06, max:0.1,  tipo:'med', ref:'ref' },
+  { id:'voo', nome:'Voo Tóquio–N. York (ida e volta)', min:0.08, max:0.11, tipo:'voo', ref:'ref' },
+  { id:'lim', nome:'Limite do público, por ano (CNEN)', min:1, max:1, tipo:'lim', ref:'none' },
+  { id:'nat', nome:'Fundo natural, média/ano', min:2.4, max:2.4, tipo:'nat', ref:'ref' },
+  { id:'tc',  nome:'Tomografia de tórax',      min:2.4,  max:12.9, tipo:'med', ref:'ref' }
+];
+const DCOL = { nat:'#3fbf8f', med:'#4db8ff', voo:'#a78bfa', lim:'#ff6b5b', fun:'#fcd34d' };
+
+/* ===== 2. CÁLCULOS ===== */
+const Phys = {
+  photonEV: f => H * f,
+  lambdaM: f => C / f,
+  oven(P, mG, t){ const m = mG / 1000, dT = P * t / (m * CW); return { dT, T: 20 + dT, tBoil: 80 * m * CW / P }; },
+  photonsPerSecond: (P, f) => P / (H * f * EV_J),
+  holeClass(dm, lam){ const r = dm / lam; return { r, cls: r < 0.1 ? 'bloqueia' : r < 0.5 ? 'vaza parcialmente' : 'passa' }; }
+};
+const fnum = Lab.num;
+const sciE = e => (e < 1e-3 || e >= 1e6) ? Lab.sci(e, 2) : fnum(e, e < 1 ? 4 : 2);
+const lamTxt = lam => lam >= 1 ? `${fnum(lam, 2)} m` : lam >= 1e-2 ? `${fnum(lam * 100, 1)} cm` : lam >= 1e-6 ? `${fnum(lam * 1e6, 1)} µm` : lam >= 1e-9 ? `${fnum(lam * 1e9, 0)} nm` : `${Lab.sci(lam, 1)} m`;
+
+/* ===== 3. CENA ===== */
+const S = Lab.stage({ theta: 0.45, phi: 1.12, radius: 30, target: [0, 1.8, 0], minR: 5, maxR: 60 });
+const state = { mode:'casa', sel:null, rad:true, nat:true, fire:0, P:800, m:250, d:2, t:0, run:false, speed:10 };
+const POSES = { casa: { theta: 0.3, phi: 1.12, radius: 23, target: [0, 1.6, -1] }, oven: { theta: 0.5, phi: 1.15, radius: 21, target: [0, 2.2, 0] } };
+let views = null, pickables = [], positions = {};
+
+if (S){
+  const { THREE, scene } = S, V = THREE.Vector3;
+  const std = (c, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.65, metalness: 0.05 }, o));
+  const bx = (w, h, d, mat, x, y, z, parent) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); if (parent) parent.add(m); return m; };
+  const cyl = (rt, rb, h, mat, x, y, z, parent, seg = 20) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), mat); m.position.set(x, y, z); if (parent) parent.add(m); return m; };
+  const sph = (r, mat, x, y, z, parent) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 12), mat); m.position.set(x, y, z); if (parent) parent.add(m); return m; };
+
+  /* ---------- visão 1: casa e consultório ---------- */
+  const casa = (() => {
+    const g = new THREE.Group(); scene.add(g);
+    const rings = [], sparks = [], streaks = [];
+    const items = {};                                                   // id -> Group
+    const mk = id => { const gr = new THREE.Group(); gr.userData.item = id; g.add(gr); items[id] = gr; return gr; };
+
+    // piso das duas áreas e parede do fundo
+    bx(11.6, 0.3, 12, std(0x6f6556, { roughness: 0.9 }), -4.6, -0.15, 0, g);
+    bx(8.6, 0.3, 12, std(0x6b7f96, { roughness: 0.9 }), 5.7, -0.15, 0, g);
+    bx(20.4, 4.6, 0.3, std(0x8d877b, { roughness: 0.95, transparent: true, opacity: 0.7 }), 0, 2.3, -6.1, g);
+    bx(0.12, 0.8, 11.8, std(0x8a95ab), 1.15, 0.4, 0, g);            // divisória baixa
+    S.label('z-casa', ''); S.label('z-cons', '');
+
+    // granito (textura com pintas)
+    const gc = document.createElement('canvas'); gc.width = gc.height = 128; const gx = gc.getContext('2d');
+    gx.fillStyle = '#6a6f78'; gx.fillRect(0, 0, 128, 128);
+    for (let i = 0; i < 900; i++){ gx.fillStyle = ['#9aa1ad', '#3d4048', '#b9a98f', '#c8c8c8'][i % 4]; gx.fillRect(Math.random() * 128, Math.random() * 128, 1 + Math.random() * 2, 1 + Math.random() * 2); }
+    const graniteTex = new THREE.CanvasTexture(gc); graniteTex.encoding = THREE.sRGBEncoding; graniteTex.wrapS = graniteTex.wrapT = THREE.RepeatWrapping; graniteTex.repeat.set(3, 1);
+    bx(6.2, 1.0, 1.7, std(0x8d7a65, { roughness: 0.9 }), -6.9, 0.5, -4.9, g);
+    const top = bx(6.4, 0.18, 1.9, new THREE.MeshStandardMaterial({ map: graniteTex, roughness: 0.4 }), -6.9, 1.09, -4.9, g);
+
+    // micro-ondas
+    const mo = mk('mo'); mo.position.set(-8.3, 1.18, -4.9);
+    bx(2.0, 1.2, 1.4, std(0xcfd6e4, { metalness: 0.4, roughness: 0.4 }), 0, 0.6, 0, mo);
+    bx(1.35, 0.85, 0.06, std(0x141b2a, { transparent: true, opacity: 0.9 }), -0.2, 0.62, 0.72, mo);
+    const gp = []; for (let i = -6; i <= 6; i++) gp.push(-0.2 + i * 0.1, 0.2, 0.76, -0.2 + i * 0.1, 1.04, 0.76); for (let j = 0; j <= 8; j++) gp.push(-0.86, 0.2 + j * 0.105, 0.76, 0.46, 0.2 + j * 0.105, 0.76);
+    const gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.Float32BufferAttribute(gp, 3)); mo.add(new THREE.LineSegments(gg, new THREE.LineBasicMaterial({ color: 0xc9d4ee, transparent: true, opacity: 0.8 })));
+    bx(0.4, 0.8, 0.06, std(0x2a3550), 0.72, 0.62, 0.72, mo);
+    const disp = bx(0.28, 0.1, 0.02, new THREE.MeshBasicMaterial({ color: 0x57f2a0 }), 0.72, 0.9, 0.76, mo);
+    const moGlow = new THREE.PointLight(0xffa24d, 0, 3.2); moGlow.position.set(-0.2, 0.62, 0.3); mo.add(moGlow);
+    const moPlate = cyl(0.42, 0.42, 0.04, std(0xd8e0ee), -0.2, 0.25, 0.1, mo, 24);
+    const moFood = cyl(0.25, 0.25, 0.2, std(0x3b82f6), -0.2, 0.37, 0.1, mo, 20);
+
+    // bananas e fruteira
+    const ban = mk('ban'); ban.position.set(-4.7, 1.18, -4.8);
+    cyl(0.7, 0.55, 0.22, std(0x8a5a2b, { roughness: 0.8 }), 0, 0.11, 0, ban, 24);
+    const bmat = std(0xf6d33b, { roughness: 0.55 });
+    [[0, 0.3, 0.1, 0.2], [0.15, 0.36, -0.05, -0.1]].forEach(b => {
+      const cv = new THREE.CatmullRomCurve3([new V(-0.75, 0, 0), new V(-0.35, 0.2, 0.28), new V(0.15, 0.25, 0.3), new V(0.62, 0.12, 0.05)]);
+      const t = new THREE.Mesh(new THREE.TubeGeometry(cv, 30, 0.13, 10), bmat); t.position.set(b[0], b[1], b[2]); t.rotation.y = b[3]; ban.add(t);
+      const tip = sph(0.075, std(0x5a3a1a), 0, 0, 0, ban); tip.position.set(b[0] + Math.cos(b[3]) * 0.62, b[1] + 0.12, b[2] - Math.sin(b[3]) * 0.62 + 0.05);
+    });
+
+    // mesa com roteador, celular e rádio
+    bx(5.0, 0.12, 1.5, std(0x8a5a2b, { roughness: 0.8 }), -2.2, 0.95, -4.5, g);
+    [[-4.5, -5.1], [-4.5, -3.9], [0.1, -5.1], [0.1, -3.9]].forEach(p => cyl(0.07, 0.07, 0.95, std(0x5a3a1a), p[0], 0.47, p[1], g, 8));
+    const wifi = mk('wifi'); wifi.position.set(-3.7, 1.0, -4.5);
+    bx(0.9, 0.14, 0.6, std(0x1c2433), 0, 0.07, 0, wifi);
+    [-0.3, 0, 0.3].forEach(x => { cyl(0.025, 0.025, 0.55, std(0x1c2433), x, 0.4, -0.15, wifi, 8); });
+    sph(0.035, new THREE.MeshBasicMaterial({ color: 0x57f2a0 }), 0.32, 0.15, 0.31, wifi);
+    const cel = mk('cel'); cel.position.set(-2.4, 1.0, -4.3); cel.rotation.y = 0.4;
+    bx(0.32, 0.04, 0.62, std(0x151a26), 0, 0.02, 0, cel); bx(0.28, 0.006, 0.54, new THREE.MeshBasicMaterial({ color: 0x4d8bff }), 0, 0.045, 0, cel);
+    const radio = mk('radio'); radio.position.set(-1.0, 1.0, -4.6);
+    bx(0.95, 0.5, 0.4, std(0xb4562b, { roughness: 0.6 }), 0, 0.25, 0, radio);
+    cyl(0.12, 0.12, 0.05, std(0xe8d5b0), -0.25, 0.25, 0.22, radio, 16).rotation.x = Math.PI / 2;
+    cyl(0.12, 0.12, 0.05, std(0xe8d5b0), 0.15, 0.25, 0.22, radio, 16).rotation.x = Math.PI / 2;
+    const ant = cyl(0.012, 0.012, 0.9, std(0xcfd6e4, { metalness: 0.6 }), 0.35, 0.95, -0.05, radio, 6); ant.rotation.z = -0.25;
+
+    // lâmpada de pé
+    const lamp = mk('lamp'); lamp.position.set(-0.4, 0, -1.4);
+    cyl(0.28, 0.32, 0.08, std(0x3a3f4d), 0, 0.04, 0, lamp, 20); cyl(0.03, 0.03, 2.4, std(0x3a3f4d), 0, 1.25, 0, lamp, 8);
+    const bulb = sph(0.22, new THREE.MeshBasicMaterial({ color: 0xffe9a8 }), 0, 2.6, 0, lamp);
+    const shade = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.5, 0.45, 20, 1, true), std(0xf2e6c8, { side: THREE.DoubleSide, transparent: true, opacity: 0.55 })); shade.position.y = 2.65; lamp.add(shade);
+    const lampLight = new THREE.PointLight(0xffe0a0, 0.9, 9); lampLight.position.set(0, 2.5, 0); lamp.add(lampLight);
+
+    // Sol, vindo de fora
+    const sol = mk('sol'); sol.position.set(-9.5, 8.8, -3.5);
+    sph(1.0, new THREE.MeshBasicMaterial({ color: 0xffd34d }), 0, 0, 0, sol);
+    const halo = new THREE.Mesh(new THREE.SphereGeometry(1.5, 20, 14), new THREE.MeshBasicMaterial({ color: 0xffb347, transparent: true, opacity: 0.25, depthWrite: false })); sol.add(halo);
+
+    // pessoa em pé ("você")
+    function person(color, scale = 1){
+      const p = new THREE.Group(), skin = std(0xe3b896, { roughness: 0.7 }), cl = std(color, { roughness: 0.8 });
+      cyl(0.13, 0.12, 0.8, std(0x2a3550), -0.12, 0.4, 0, p, 10); cyl(0.13, 0.12, 0.8, std(0x2a3550), 0.12, 0.4, 0, p, 10);
+      cyl(0.26, 0.3, 0.8, cl, 0, 1.2, 0, p, 14); sph(0.2, skin, 0, 1.82, 0, p);
+      [-1, 1].forEach(s => { const a = cyl(0.07, 0.06, 0.7, cl, s * 0.36, 1.2, 0, p, 8); a.rotation.z = s * 0.12; });
+      p.scale.setScalar(scale); return p;
+    }
+    const you = mk('nat'); you.position.set(-4.2, 0, -0.6); you.add(person(0x3b5bdb));
+
+    // consultório: mesa de exame, paciente, tubo de raio X, detector e biombo de chumbo
+    const xr = mk('xr'); xr.position.set(5.7, 0, -1.6);
+    bx(3.6, 0.7, 1.3, std(0xdde3ee, { roughness: 0.5 }), 0, 0.35, 0, xr);
+    bx(3.2, 0.12, 1.1, std(0x8fa5c4), 0, 0.76, 0, xr);
+    const pat = new THREE.Group(); pat.position.set(0, 0.9, 0); pat.rotation.z = Math.PI / 2; pat.add(person(0xe58a3c, 1)); pat.position.set(1.0, 0.82, 0); xr.add(pat);
+    bx(2.6, 0.07, 1.0, std(0x2a3550), 0, 0.5, 0, xr);                         // detector sob a mesa
+    cyl(0.14, 0.14, 4.6, std(0xcfd6e4, { metalness: 0.5 }), 3.2, 2.3, 0, xr, 10);
+    bx(3.3, 0.18, 0.28, std(0xcfd6e4, { metalness: 0.5 }), 1.55, 4.55, 0, xr);
+    const tube = bx(1.0, 0.8, 0.8, std(0x39435a, { metalness: 0.5 }), 0, 4.1, 0, xr);
+    bx(0.8, 0.2, 0.7, std(0x161c2b), 0, 3.65, 0, xr);
+    const beam = new THREE.Mesh(new THREE.ConeGeometry(1.25, 2.9, 32, 1, true), new THREE.MeshBasicMaterial({ color: 0xff5a4d, transparent: true, opacity: 0.0, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }));
+    beam.position.set(0, 2.15, 0); xr.add(beam);
+    const bgeo = new THREE.BufferGeometry(), NB = 80, bpos = new Float32Array(NB * 3);
+    bgeo.setAttribute('position', new THREE.BufferAttribute(bpos, 3));
+    const bpts = new THREE.Points(bgeo, new THREE.PointsMaterial({ color: 0xff7a5a, size: 0.14, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })); bpts.frustumCulled = false; bpts.visible = false; xr.add(bpts);
+    const bseed = Array.from({ length: NB }, () => ({ a: Math.random() * 6.28, r: Math.random(), p: Math.random() }));
+    // biombo de chumbo e operador
+    bx(0.12, 2.2, 2.2, std(0xd9d27a, { transparent: true, opacity: 0.45 }), 8.7, 1.1, 1.0, g);
+    const op = person(0x2aa6a0, 0.9); op.position.set(9.5, 0, 1.0); g.add(op);
+    const room = new THREE.Group(); g.add(room);
+
+    // raios cósmicos (traços vermelhos)
+    const NS = 26, sgeo = new THREE.BufferGeometry(), spos = new Float32Array(NS * 6);
+    sgeo.setAttribute('position', new THREE.BufferAttribute(spos, 3));
+    const streakLines = new THREE.LineSegments(sgeo, new THREE.LineBasicMaterial({ color: 0xff5a4d, transparent: true, opacity: 0.8 })); streakLines.frustumCulled = false; g.add(streakLines);
+    for (let i = 0; i < NS; i++) streaks.push({ x: (Math.random() - 0.5) * 18, z: (Math.random() - 0.5) * 10, y: 14 + Math.random() * 10, v: 18 + Math.random() * 10 });
+
+    // faíscas (decaimentos naturais): banana, granito, pessoa
+    const sparkMat = new THREE.MeshBasicMaterial({ color: 0xff5a4d, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
+    for (let i = 0; i < 40; i++){ const m = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), sparkMat.clone()); m.visible = false; g.add(m); sparks.push({ m, life: -1 }); }
+    const SPARK_SRC = [ { w: 5, at: () => new V(-4.7 + (Math.random() - 0.5) * 1.2, 1.5 + Math.random() * 0.4, -4.8 + (Math.random() - 0.5) * 0.7) },
+                        { w: 3, at: () => new V(-6.9 + (Math.random() - 0.5) * 6, 1.2, -4.9 + (Math.random() - 0.5) * 1.6) },
+                        { w: 4, at: () => new V(-4.2 + (Math.random() - 0.5) * 0.5, 0.6 + Math.random() * 1.3, -0.6 + (Math.random() - 0.5) * 0.4) } ];
+
+    // anéis de onda (não ionizantes)
+    const EM = [ { id:'wifi', pos: new V(-3.7, 1.35, -4.5), color: 0x2aa6a0, R: 5.5, per: 0.55 },
+                 { id:'cel', pos: new V(-2.4, 1.1, -4.3), color: 0x2aa6a0, R: 2.0, per: 0.45 },
+                 { id:'radio', pos: new V(-1.0, 1.9, -4.65), color: 0x2aa6a0, R: 7.5, per: 0.95 } ];
+    for (let i = 0; i < 44; i++){ const m = new THREE.Mesh(new THREE.RingGeometry(0.96, 1, 48), new THREE.MeshBasicMaterial({ color: 0x2aa6a0, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false })); m.visible = false; g.add(m); rings.push({ m, born: -1, src: null }); }
+    EM.forEach(e => { e.next = Math.random() * e.per; });
+    // raios UV do Sol
+    const uvGeo = new THREE.BufferGeometry().setFromPoints([new V(-9.5, 8.8, -3.5), new V(-4.2, 1.8, -0.6), new V(-9.5, 8.8, -3.5), new V(-4.6, 2.0, -0.9), new V(-9.5, 8.8, -3.5), new V(-3.9, 1.9, -0.4)]);
+    const uvLines = new THREE.LineSegments(uvGeo, new THREE.LineDashedMaterial({ color: 0xb07cff, dashSize: 0.3, gapSize: 0.25 })); uvLines.computeLineDistances(); g.add(uvLines);
+    // marcador de seleção
+    const selRing = new THREE.Mesh(new THREE.RingGeometry(0.95, 1.0, 48), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthTest: false })); selRing.rotation.x = -Math.PI / 2; selRing.renderOrder = 20; selRing.visible = false; g.add(selRing);
+
+    pickables = Object.values(items);
+    const SEL_SIZE = { mo: 1.6, ban: 1.1, wifi: 0.8, cel: 0.5, radio: 0.9, lamp: 0.9, sol: 1.7, xr: 2.6, nat: 0.8 };
+    Object.entries(items).forEach(([id, gr]) => { positions[id] = new V(); S.label('i-' + id, ITEM(id).ion === 'ion' ? 'ion' : 'non'); });
+
+    let nextSpark = 0, last = 0;
+    function theme(d){ uvLines.material.color.set(d ? 0xc6a6ff : 0x7a3cff); }
+
+    function tick(dt, t){
+      Object.keys(items).forEach(id => { items[id].getWorldPosition(positions[id]); });
+      // seleção
+      if (state.sel){ const gr = items[state.sel]; selRing.visible = true; const p = positions[state.sel]; selRing.position.set(p.x, state.sel === 'sol' ? p.y - 1.2 : p.y + 0.05, p.z); selRing.scale.setScalar(SEL_SIZE[state.sel] || 1); selRing.rotation.z += dt; } else selRing.visible = false;
+      // raio X
+      state.fire = Math.max(0, state.fire - dt);
+      const on = state.fire > 0;
+      beam.material.opacity = on ? 0.35 * Math.min(1, state.fire * 2) : 0; bpts.visible = on;
+      if (on) bseed.forEach((b, i) => { b.p = (b.p + dt * 1.6) % 1; const y = 3.5 - b.p * 2.9, r = b.r * 1.15 * (1 - (3.5 - y) / 3.6 + 0.15); bpos[i * 3] = Math.cos(b.a) * r; bpos[i * 3 + 1] = y; bpos[i * 3 + 2] = Math.sin(b.a) * r; }), bgeo.attributes.position.needsUpdate = true;
+      // brilho do micro-ondas quando está aquecendo
+      moGlow.intensity = state.run ? 1.1 : 0; disp.material.color.set(state.run ? 0xffc14d : 0x57f2a0);
+      moFood.material.color.set(state.run ? 0xff9a3d : 0x3b82f6);
+      moPlate.rotation.y += dt * (state.run ? 1.5 : 0);
+      // ondas
+      rings.forEach(r => { if (r.born < 0) return; const age = t - r.born, k = age / r.dur; if (k >= 1){ r.born = -1; r.m.visible = false; return; } r.m.visible = state.rad; r.m.scale.setScalar(0.15 + k * r.R); r.m.material.opacity = 0.7 * (1 - k); r.m.lookAt(S.camera.position); });
+      if (state.rad) EM.forEach(e => { if (t >= e.next){ e.next = t + e.per; const r = rings.find(q => q.born < 0); if (r){ r.born = t; r.dur = 1.3 + e.R * 0.22; r.R = e.R; r.m.position.copy(e.pos); r.m.material.color.set(e.color); } } });
+      uvLines.visible = state.rad;
+      // raios cósmicos e faíscas naturais
+      streakLines.visible = state.nat;
+      if (state.nat){
+        streaks.forEach((s, i) => { s.y -= s.v * dt; if (s.y < -1){ s.y = 12 + Math.random() * 10; s.x = (Math.random() - 0.5) * 18; s.z = (Math.random() - 0.5) * 10; }
+          spos[i * 6] = s.x; spos[i * 6 + 1] = s.y; spos[i * 6 + 2] = s.z; spos[i * 6 + 3] = s.x + 0.15; spos[i * 6 + 4] = s.y + 1.4; spos[i * 6 + 5] = s.z; });
+        sgeo.attributes.position.needsUpdate = true;
+        if (t >= nextSpark){ nextSpark = t + 0.09; const sp = sparks.find(q => q.life < 0); if (sp){ const src = SPARK_SRC[Math.floor(Math.random() * SPARK_SRC.length)]; sp.m.position.copy(src.at()); sp.life = 0; sp.m.visible = true; } }
+      }
+      sparks.forEach(sp => { if (sp.life < 0) return; sp.life += dt; if (sp.life > 0.28 || !state.nat){ sp.life = -1; sp.m.visible = false; return; } sp.m.scale.setScalar(1 + sp.life * 12); sp.m.material.opacity = 1 - sp.life / 0.28; });
+    }
+    function id2y(id){ return id === 'sol' ? positions.sol.y - 1.2 : 0.05; }
+    function labels(){
+      const wide = S.canvas.clientWidth > 700;
+      S.place('z-casa', new V(-7, 0.1, 5.2), true, 'Casa');
+      S.place('z-cons', new V(5.7, 0.1, 5.2), true, 'Consultório');
+      ITEMS.forEach(it => {
+        const p = positions[it.id]; if (!p) return;
+        const up = { mo: 2.1, ban: 1.1, wifi: 1.1, cel: 0.5, radio: 1.2, lamp: 3.1, sol: 1.8, xr: 5.0, nat: 2.4 }[it.id] ?? 1;
+        const sel = state.sel === it.id;
+        S.place('i-' + it.id, new V(p.x, p.y + up, p.z), wide || sel, it.nome.split(' (')[0].split(',')[0]);
+      });
+    }
+    function pick(e){
+      const r = S.canvas.getBoundingClientRect(), ray = new THREE.Raycaster(), nd = new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+      ray.setFromCamera(nd, S.camera); const hits = ray.intersectObjects(pickables, true);
+      for (const h of hits){ let o = h.object; while (o && !o.userData.item) o = o.parent; if (o) return o.userData.item; }
+      return null;
+    }
+    return { group: g, tick, labels, pick, theme, ids: ['z-casa', 'z-cons', ...ITEMS.map(i => 'i-' + i.id)] };
+  })();
+
+  /* ---------- visão 2: micro-ondas por dentro ---------- */
+  const oven = (() => {
+    const group = new THREE.Group(); scene.add(group);
+    const OW = 12, OH = 7, OD = 9;
+    const shell = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(OW, OH, OD)), new THREE.LineBasicMaterial({ color: 0x9fb4d8 })); shell.position.y = OH / 2; group.add(shell);
+    const walls = new THREE.Mesh(new THREE.BoxGeometry(OW, OH, OD), new THREE.MeshBasicMaterial({ color: 0x7e92b8, transparent: true, opacity: 0.1, side: THREE.BackSide, depthWrite: false })); walls.position.y = OH / 2; group.add(walls);
+    const plate = cyl(3.4, 3.4, 0.2, std(0xcfd6e4, { transparent: true, opacity: 0.85 }), 0, 0.6, 0, group, 40);
+    const foodMat = std(0x3b82f6, { roughness: 0.4 });
+    const food = cyl(2.2, 2.2, 1.6, foodMat, 0, 1.6, 0, group, 40);
+    cyl(0.6, 0.6, 0.8, std(0x3a5bd9, { metalness: 0.5 }), OW / 2 - 0.5, OH - 0.6, -OD / 2 + 0.8, group, 16);
+    const mols = [], oGeo = new THREE.SphereGeometry(0.2, 12, 8), hGeo = new THREE.SphereGeometry(0.11, 10, 8);
+    for (let i = 0; i < 14; i++){
+      const gg = new THREE.Group();
+      gg.add(new THREE.Mesh(oGeo, new THREE.MeshBasicMaterial({ color: 0xff4d3d })));
+      [-1, 1].forEach(s => { const h = new THREE.Mesh(hGeo, new THREE.MeshBasicMaterial({ color: 0xffffff })); h.position.set(s * 0.26, 0.2, 0); gg.add(h); });
+      const a = Math.random() * 6.28, r = 0.4 + Math.random() * 1.4;
+      gg.position.set(Math.cos(a) * r, 1.9 + Math.random() * 0.9, Math.sin(a) * r); gg.userData.ph = Math.random() * 6.28; group.add(gg); mols.push(gg);
+    }
+    const NX = 14, NZ = 10, field = new THREE.InstancedMesh(new THREE.BoxGeometry(0.28, 1, 0.28), new THREE.MeshBasicMaterial({ color: 0xffa24d, transparent: true, opacity: 0.55, depthWrite: false }), NX * NZ); group.add(field);
+    const door = new THREE.Group(); door.position.set(0, OH / 2, OD / 2 + 0.05); group.add(door);
+    door.add(new THREE.Mesh(new THREE.PlaneGeometry(OW - 0.6, OH - 0.6), new THREE.MeshBasicMaterial({ color: 0x1a2336, transparent: true, opacity: 0.35, side: THREE.DoubleSide })));
+    let meshLines = null;
+    function buildMesh(){
+      if (meshLines){ door.remove(meshLines); meshLines.geometry.dispose(); }
+      const sp = Math.max(0.12, Math.min(6, state.d / 10 * 1.4)), pts = [], w = OW - 0.6, h = OH - 0.6;
+      for (let x = -w / 2; x <= w / 2 + 1e-6; x += sp) pts.push(x, -h / 2, 0, x, h / 2, 0);
+      for (let y = -h / 2; y <= h / 2 + 1e-6; y += sp) pts.push(-w / 2, y, 0, w / 2, y, 0);
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+      meshLines = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: 0xc9d4ee, transparent: true, opacity: 0.8 })); door.add(meshLines);
+    }
+    const NL = 90, lg = new THREE.BufferGeometry(), lp = new Float32Array(NL * 3), lc = new Float32Array(NL * 3);
+    lg.setAttribute('position', new THREE.BufferAttribute(lp, 3)); lg.setAttribute('color', new THREE.BufferAttribute(lc, 3));
+    const leak = new THREE.Points(lg, new THREE.PointsMaterial({ size: 0.22, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })); leak.frustumCulled = false; group.add(leak);
+    const lk = Array.from({ length: NL }, () => ({ x: (Math.random() - 0.5) * 10, y: 1 + Math.random() * 5, p: Math.random() }));
+    ['o-door', 'o-food', 'o-mag', 'o-mol'].forEach(id => S.label(id, ''));
+    const m4 = new THREE.Matrix4(), pv = new V(), qv = new THREE.Quaternion(), sv = new V();
+    let lastD = -1;
+    function tick(dt, t){
+      if (state.d !== lastD){ lastD = state.d; buildMesh(); }
+      plate.rotation.y += dt * 0.5; food.rotation.y = plate.rotation.y;
+      const o = Phys.oven(state.P, state.m, state.t), Tn = Math.min(1, Math.max(0, (Math.min(o.T, 100) - 20) / 80));
+      foodMat.color.setRGB(0.23 + 0.77 * Tn, 0.51 - 0.2 * Tn, 0.96 - 0.85 * Tn).convertSRGBToLinear();
+      const on = state.run || state.t > 0;
+      mols.forEach(gg => { gg.rotation.z = Math.sin(t * (state.run ? 5 : 0.6) + gg.userData.ph) * 1.2; });
+      const amp = state.run ? 1 : 0.15, k = 2 * Math.PI / 7;
+      for (let ix = 0; ix < NX; ix++) for (let iz = 0; iz < NZ; iz++){
+        const x = (ix - (NX - 1) / 2) * 0.8, z = (iz - (NZ - 1) / 2) * 0.8;
+        const hh = 0.2 + 2.6 * Math.abs(Math.sin(k * x) * Math.sin(k * z * 0.8)) * Math.abs(Math.cos(t * 3)) * amp;
+        pv.set(x, 3.4 + hh / 2, z); sv.set(1, hh, 1); m4.compose(pv, qv, sv); field.setMatrixAt(ix * NZ + iz, m4);
+      }
+      field.instanceMatrix.needsUpdate = true; field.visible = on;
+      const cls = Phys.holeClass(state.d / 10, Phys.lambdaM(2.45e9) * 100).cls;
+      leak.visible = cls !== 'bloqueia' && state.run;
+      if (leak.visible){
+        const strength = cls === 'passa' ? 1 : 0.35;
+        lk.forEach((q, i) => { q.p = (q.p + dt * 0.8) % 1; const k3 = i * 3; lp[k3] = q.x * 0.6; lp[k3 + 1] = q.y; lp[k3 + 2] = OD / 2 + q.p * 9; const f = (1 - q.p) * strength; lc[k3] = f; lc[k3 + 1] = 0.6 * f; lc[k3 + 2] = 0.2 * f; });
+        lg.attributes.position.needsUpdate = lg.attributes.color.needsUpdate = true;
+      }
+      if (state.run){
+        state.t += dt * state.speed; if (state.t >= 180){ state.t = 180; state.run = false; $('#play').textContent = 'Aquecer'; }
+        if ((state._u = (state._u || 0) + dt) > 0.12){ state._u = 0; refreshOven(); }
+      }
+    }
+    function labels(){
+      S.place('o-door', new V(0, OH + 0.6, OD / 2), true, 'porta com tela metálica');
+      S.place('o-food', new V(2.4, 2.8, 0), true, 'água no alimento');
+      S.place('o-mag', new V(OW / 2 - 0.5, OH + 0.4, -OD / 2 + 0.8), true, 'magnétron (2,45 GHz)');
+      S.place('o-mol', new V(-2.6, 3.0, 1.8), true, 'moléculas de água giram');
+    }
+    return { group, tick, labels, theme(){}, ids: ['o-door', 'o-food', 'o-mag', 'o-mol'] };
+  })();
+
+  views = { casa, oven };
+  S.setMode = m => {
+    state.mode = m; Object.entries(views).forEach(([k, v]) => { v.group.visible = k === m; });
+    const p = POSES[m]; ['theta', 'phi', 'radius'].forEach(k => { S.goal[k] = p[k]; S.orbit[k] = p[k]; }); S.goal.target.set(...p.target); S.orbit.target.set(...p.target);
+    S.hideLabels();
+  };
+  S.resetCamera = () => { const p = POSES[state.mode]; ['theta', 'phi', 'radius'].forEach(k => { S.goal[k] = p[k]; }); S.goal.target.set(...p.target); if (state.mode === 'casa'){ state.sel = null; render(); } };
+  S.onTick = (dt, t) => views[state.mode].tick(dt, t);
+  S.onLabels = () => views[state.mode].labels();
+  S.onPick = e => { if (state.mode !== 'casa') return; const id = casa.pick(e); if (id) select(id); };
+  S.applyTheme = d => { S.dark = d; casa.theme(d); };
+  S.setMode('casa');
+}
+
+/* ===== 4. INTERFACE ===== */
+const STAMPS = {
+  casa: 'ilustração conceitual · ondas e partículas desenhadas não são reais · clique nos objetos',
+  oven: 'ilustração conceitual · campo e moléculas esquemáticos · sem perdas nem ebulição'
+};
+
+function select(id){
+  state.sel = id;
+  if (S && positions[id]){ const p = positions[id]; S.goal.target.set(p.x, Math.max(1, p.y * 0.6 + 0.6), p.z); S.goal.radius = id === 'xr' ? 15 : id === 'sol' ? 28 : 11; }
+  render();
+}
+
+function badgeFor(it){
+  return it.ion === 'ion' ? Lab.badge('calc', 'ƒ ionizante') : it.ion === 'uv' ? Lab.badge('sim', '≈ borda (UV)') : Lab.badge('ref', '✓ não ionizante');
+}
+
+function renderRuler(){
+  const W = 340, H = 150, l = 14, rr = 14, t = 20, pw = W - l - rr;
+  const lo = -9, hi = 7, X = E => l + (Math.log10(E) - lo) / (hi - lo) * pw;
+  const dots = ITEMS.filter(i => i.E).map(i => {
+    const sel = i.id === state.sel, c = i.ion === 'ion' ? '#e5533d' : i.ion === 'uv' ? '#b07cff' : '#2aa6a0';
+    const dy = { radio: 0, wifi: -26, cel: 26, mo: 0, lamp: 0, sol: -26, xr: 0, ban: -26 }[i.id] ?? 0;
+    return `<line x1="${X(i.E)}" x2="${X(i.E)}" y1="${75}" y2="${75 + dy}" stroke="${c}" stroke-width="1" opacity=".7"/><circle cx="${X(i.E)}" cy="75" r="${sel ? 7 : 4.5}" fill="${c}" stroke="${sel ? 'var(--ink)' : 'var(--card-solid)'}" stroke-width="${sel ? 2.4 : 1.2}"/><text x="${Math.min(Math.max(X(i.E), 28), W - 26)}" y="${75 + dy + (dy > 0 ? 12 : dy < 0 ? -5 : 22)}" text-anchor="middle" style="fill:${sel ? 'var(--ink)' : 'var(--muted)'};font-weight:${sel ? 700 : 400}">${i.nome.split(' ')[0].replace('Aparelho', 'Raio X')}</text>`;
+  }).join('');
+  const ticks = [-8, -6, -4, -2, 0, 2, 4, 6].map(d => `<line x1="${X(Math.pow(10, d))}" x2="${X(Math.pow(10, d))}" y1="${70}" y2="${80}" class="c-axis"/><text x="${X(Math.pow(10, d))}" y="${H - 6}" text-anchor="middle">10${String(d).replace('-', '⁻').replace(/\d/g, c => '⁰¹²³⁴⁵⁶⁷⁸⁹'[c])}</text>`).join('');
+  $('#ruler').innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Energia por fóton das fontes em escala logarítmica, com a linha de 10 eV">
+    <text x="${l}" y="13" class="ttl">energia por fóton (eV), escala log</text>
+    <rect x="${l}" y="64" width="${X(ION) - l}" height="22" fill="#2aa6a0" opacity=".12"/><rect x="${X(ION)}" y="64" width="${W - rr - X(ION)}" height="22" fill="#e5533d" opacity=".16"/>
+    <line x1="${l}" x2="${W - rr}" y1="75" y2="75" class="c-axis"/>
+    <line x1="${X(ION)}" x2="${X(ION)}" y1="40" y2="112" stroke="#e5533d" stroke-width="1.6" stroke-dasharray="4 2"/><text x="${X(ION)}" y="34" text-anchor="middle" style="fill:#e5533d;font-weight:700">≈ 10 eV</text>
+    ${dots}${ticks}</svg>`;
+}
+
+function renderDoseChart(){
+  const W = 340, rowH = 26, H = 28 + DOSES.length * rowH, l = 150, rr = 12, pw = W - l - rr;
+  const lo = -4.5, hi = 1.3, X = v => l + (Math.log10(v) - lo) / (hi - lo) * pw;
+  const related = { ban: 'ban', xr: 'xr', nat: 'nat' }[state.sel];
+  const rows = DOSES.map((d, i) => {
+    const y = 26 + i * rowH, x0 = d.min === d.max ? X(d.min) - 3 : X(d.min), x1 = d.min === d.max ? X(d.min) + 3 : X(d.max), sel = d.id === related;
+    return `<text x="${l - 6}" y="${y + 12}" text-anchor="end" style="fill:${sel ? 'var(--ink)' : 'var(--muted)'};font-weight:${sel ? 700 : 400}">${d.nome.length > 28 ? d.nome.slice(0, 27) + '…' : d.nome}</text>
+      <rect x="${x0}" y="${y}" width="${Math.max(6, x1 - x0)}" height="15" rx="4" fill="${DCOL[d.tipo]}" stroke="${sel ? 'var(--ink)' : 'none'}" stroke-width="2"/>`;
+  }).join('');
+  const grid = [-4, -3, -2, -1, 0, 1].map(d => `<line x1="${X(Math.pow(10, d))}" x2="${X(Math.pow(10, d))}" y1="18" y2="${H - 14}" class="c-grid"/><text x="${X(Math.pow(10, d))}" y="${H - 3}" text-anchor="middle">${fnum(Math.pow(10, d), d < 0 ? -d : 0)}</text>`).join('');
+  $('#dosechart').innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Doses típicas em mSv, escala logarítmica"><text x="${l}" y="12" class="ttl">dose efetiva típica (mSv)</text>${grid}${rows}</svg>`;
+}
+
+function renderCasa(){
+  const it = state.sel ? ITEM(state.sel) : null;
+  if (!it){
+    $('#kpis').innerHTML = `<div class="kpi"><div class="l">Objetos</div><div class="n">${ITEMS.length}</div><div class="s">na cena</div>${Lab.badge('sim', '≈ ilustrativo')}</div>
+      <div class="kpi"><div class="l">Limiar</div><div class="n">≈ 10 eV</div><div class="s">por fóton</div>${Lab.badge('ref', '✓ convenção')}</div>
+      <div class="kpi"><div class="l">Ionizantes</div><div class="n">${ITEMS.filter(i => i.ion === 'ion').length}</div><div class="s">raio X, banana, natural</div>${Lab.badge('calc')}</div>`;
+    $('#status').innerHTML = '<strong>Clique em um objeto da cena</strong> (ou escolha na lista) para ver a radiação que ele emite, a energia por fóton e se ela ioniza. Ondas verdes não ionizam; partículas vermelhas, sim.';
+    $('#rows').innerHTML = ''; $('#extra').innerHTML = '';
+    $('#legend').innerHTML = `<div class="ttl">Casa e consultório<small>ilustração conceitual · clique para explorar</small></div><dl><dt>Verde</dt><dd>não ionizante</dd><dt>Vermelho</dt><dd>ionizante</dd></dl>`;
+  } else {
+    const hasE = !!it.E, E = it.E, ion = it.ion;
+    $('#kpis').innerHTML =
+      `<div class="kpi"><div class="l">Energia/fóton</div><div class="n">${hasE ? sciE(E) : '—'}</div><div class="s">${hasE ? 'eV' : 'sem energia única'}</div>${hasE ? Lab.badge(it.id === 'ban' || it.id === 'xr' ? 'none' : 'calc', it.id === 'ban' || it.id === 'xr' ? '∅ valor típico' : null) : Lab.badge('none')}</div>
+       <div class="kpi"><div class="l">Ioniza?</div><div class="n">${ion === 'ion' ? 'Sim' : 'Não'}</div><div class="s">${ion === 'uv' ? 'borda: dano fotoquímico' : 'limiar ≈ 10 eV'}</div>${badgeFor(it)}</div>
+       <div class="kpi"><div class="l">Frequência</div><div class="n">${it.f ? (it.f >= 1e12 ? Lab.sci(it.f, 1) + ' Hz' : it.f >= 1e9 ? fnum(it.f / 1e9, 2) + ' GHz' : it.f >= 1e6 ? fnum(it.f / 1e6, 0) + ' MHz' : Lab.sci(it.f, 1) + ' Hz') : '—'}</div><div class="s">${it.lamM ? 'λ = ' + lamTxt(it.lamM) : ''}</div>${it.f ? Lab.badge('calc') : Lab.badge('none')}</div>`;
+    $('#status').innerHTML = `<strong>${it.nome}:</strong> ${it.nota}`;
+    let rows = Lab.row('Tipo de radiação', 'valores típicos, a verificar', it.tipo, 'none', '∅ valor típico');
+    if (hasE) rows += Lab.row('Energia por fóton', 'E = h·f', `${sciE(E)} eV`, it.id === 'ban' || it.id === 'xr' ? 'none' : 'calc', it.id === 'ban' || it.id === 'xr' ? '∅ valor típico' : null);
+    if (hasE && ion !== 'ion') rows += Lab.row('Falta para ionizar (≈ 10 eV)', 'razão 10 eV / E', `${sciE(ION / E)} ×`, 'calc');
+    if (it.grand) rows += Lab.row(it.grand.k === 'sar' ? 'Grandeza: SAR' : it.grand.k === 'mSv' ? 'Dose efetiva' : 'Limite de vazamento', it.grand.txt, it.grand.k === 'sar' ? `${fnum(it.grand.v, 3)} W/kg` : it.grand.k === 'mSv' ? (it.grand.min === it.grand.max ? `${fnum(it.grand.min, 4)} mSv` : `${fnum(it.grand.min, 2)}–${fnum(it.grand.max, 2)} mSv`) : '5 mW/cm²', it.id === 'ban' ? 'none' : 'ref', it.id === 'ban' ? '∅ a verificar' : 'referência');
+    else rows += Lab.row('Dose ou SAR', 'nenhum valor selecionado', 'sem dados', 'none');
+    $('#rows').innerHTML = rows;
+    $('#extra').innerHTML = it.id === 'mo' ? `<div class="btnrow"><button type="button" class="btn pri" id="go-oven">Ver o micro-ondas por dentro</button></div>` : it.id === 'xr' ? `<p class="note">Use o botão <strong>Disparar raio X</strong> para animar o feixe. Um exame de tórax corresponde a menos de 5% do fundo natural de um ano.</p>` : '';
+    const g2 = $('#go-oven'); if (g2) g2.addEventListener('click', () => setMode('oven'));
+    $('#legend').innerHTML = `<div class="ttl">${it.nome}<small>${it.tipo}</small></div><dl><dt>Ioniza?</dt><dd>${ion === 'ion' ? 'sim' : ion === 'uv' ? 'não (borda)' : 'não'}</dd><dt>E/fóton ${hasE ? Lab.badge(it.id === 'ban' || it.id === 'xr' ? 'none' : 'calc', it.id === 'ban' || it.id === 'xr' ? '∅' : 'calc.') : ''}</dt><dd>${hasE ? sciE(E) + ' eV' : '—'}</dd></dl>`;
+  }
+  $$('#srclist button').forEach(b => b.setAttribute('aria-pressed', b.dataset.id === state.sel));
+  renderRuler(); renderDoseChart();
+}
+
+function refreshOven(){
+  const o = Phys.oven(state.P, state.m, state.t), cls = Phys.holeClass(state.d / 10, Phys.lambdaM(2.45e9) * 100);
+  const Eph = Phys.photonEV(2.45e9), nph = Phys.photonsPerSecond(state.P, 2.45e9), boiled = o.T >= 100;
+  $('#kpis').innerHTML =
+    `<div class="kpi"><div class="l">Temperatura</div><div class="n">${fnum(Math.min(o.T, 100), 0)} °C</div><div class="s">${boiled ? 'chegaria à ebulição (modelo para aqui)' : 'água, a partir de 20 °C'}</div>${Lab.badge('calc')}</div>
+     <div class="kpi"><div class="l">Energia/fóton</div><div class="n">${Lab.sci(Eph, 2)}</div><div class="s">eV · 2,45 GHz</div>${Lab.badge('calc')}</div>
+     <div class="kpi"><div class="l">Vezes abaixo de 10 eV</div><div class="n">${Lab.sci(ION / Eph, 1)}</div><div class="s">não ioniza</div>${Lab.badge('calc')}</div>`;
+  $('#status').innerHTML = `<strong>O micro-ondas aquece, não ioniza.</strong> Ele entrega ${fnum(state.P, 0)} W em fótons de ${Lab.sci(Eph, 2)} eV: cerca de ${Lab.sci(nph, 2)} fótons por segundo, mas <em>cada um</em> é fraco demais para ionizar. O efeito é calor.`;
+  $('#rows').innerHTML =
+    Lab.row('Comprimento de onda', 'λ = c/f, a 2,45 GHz', `${fnum(Phys.lambdaM(2.45e9) * 100, 1)} cm`, 'calc') +
+    Lab.row('Aquecimento em 1 minuto', `ΔT = P·t/(m·c), ${fnum(state.P, 0)} W em ${fnum(state.m, 0)} g de água`, `${fnum(Phys.oven(state.P, state.m, 60).dT, 1)} K`, 'calc', 'calculado · sem perdas') +
+    Lab.row('Tempo até 100 °C', 'a partir de 20 °C, modelo ideal', `${fnum(o.tBoil, 0)} s`, 'calc', 'calculado · sem perdas') +
+    Lab.row('Malha da porta', `furos de ${fnum(state.d, 1)} mm, ${fnum(cls.r * 100, 1)}% do λ`, cls.cls, 'none', '∅ regra prática · a verificar') +
+    Lab.row('Limite de vazamento', 'até 5 mW/cm² a 5 cm (BfS, Alemanha); média medida ≈ 1% do limite', '5 mW/cm²', 'ref', 'referência · BfS');
+  $('#legend').innerHTML = `<div class="ttl">Micro-ondas · ${fnum(state.P, 0)} W · ${fnum(state.m, 0)} g<small>tempo: ${fnum(state.t, 0)} s · ${state.run ? 'aquecendo' : 'parado'}</small></div>
+    <dl><dt>Temperatura ${Lab.badge('calc', 'calc.')}</dt><dd>${fnum(Math.min(o.T, 100), 0)} °C</dd><dt>Campo e moléculas ${Lab.badge('sim', 'ilustr.')}</dt><dd>esquema</dd></dl>`;
+  $('#extra').innerHTML = `<div class="compare"><span>Energia de 1 fóton do micro-ondas</span><span class="e">${Lab.sci(Eph, 2)} eV</span><div class="bar"><i style="width:1%;background:var(--accent)"></i></div><span></span><span>Limiar de ionização (convenção)</span><span class="e">10 eV</span><div class="bar"><i style="width:100%;background:#d0261a"></i></div><span></span></div><p class="note">As barras não estão em escala: a primeira teria menos de um milionésimo da segunda.</p>`;
+  $('#oven-note').innerHTML = `A tela da porta bloqueia a onda quando os furos são <strong>muito menores que ${fnum(Phys.lambdaM(2.45e9) * 100, 1)} cm</strong>. Aumente o furo para ver a regra falhar. Classificação: ${cls.cls} ${Lab.badge('none', '∅ regra prática')}`;
+}
+
+function render(){
+  if (state.mode === 'casa') renderCasa(); else refreshOven();
+  $('#stamp').textContent = STAMPS[state.mode];
+  if (S) S.canvas.setAttribute('aria-label', state.mode === 'casa' ? `Casa e consultório em 3D com micro-ondas, banana, Wi-Fi, celular, rádio, lâmpada, Sol e aparelho de raio X. ${state.sel ? 'Selecionado: ' + ITEM(state.sel).nome + '.' : ''} Ilustração conceitual.` : 'Interior de um micro-ondas com alimento, moléculas de água e a tela metálica da porta. Ilustração conceitual.');
+}
+
+function setMode(m){
+  if (m === state.mode) return;
+  const fade = $('#fade');
+  const go = () => {
+    if (S) S.setMode(m); else state.mode = m;
+    $$('.modes button').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === m));
+    $$('[data-modes]').forEach(s => { s.hidden = !s.dataset.modes.split(' ').includes(m); });
+    render(); fade.classList.remove('on');
+  };
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return go();
+  fade.classList.add('on'); setTimeout(go, 190);
+}
+
+/* lista de objetos */
+const grp = (tit, arr) => `<h3>${tit}</h3>` + arr.map(s => `<button type="button" data-id="${s.id}" aria-pressed="false"><i class="dot" style="background:${s.ion === 'ion' ? '#e5533d' : s.ion === 'uv' ? '#b07cff' : '#2aa6a0'}"></i><span>${s.nome}</span><span class="e">${s.E ? sciE(s.E) + ' eV' : '—'}</span></button>`).join('');
+$('#srclist').innerHTML = grp('Não ionizantes', ITEMS.filter(i => i.ion === 'non')) + grp('Borda: ultravioleta', ITEMS.filter(i => i.ion === 'uv')) + grp('Ionizantes', ITEMS.filter(i => i.ion === 'ion'));
+$$('#srclist button').forEach(b => b.addEventListener('click', () => select(b.dataset.id)));
+$('#tg-rad').addEventListener('click', e => { state.rad = !state.rad; e.currentTarget.setAttribute('aria-pressed', state.rad); e.currentTarget.textContent = state.rad ? 'Ocultar a radiação' : 'Mostrar a radiação'; });
+$('#tg-nat').addEventListener('click', e => { state.nat = !state.nat; e.currentTarget.setAttribute('aria-pressed', state.nat); e.currentTarget.textContent = state.nat ? 'Ocultar fundo natural' : 'Mostrar fundo natural'; });
+$('#fire').addEventListener('click', () => { state.fire = 1.4; select('xr'); });
+
+Lab.slider('#sl-oven', { id: 'P', label: 'Potência', unit: 'W', hint: '100 a 1 500', min: 100, max: 1500, step: 50, value: state.P }, v => { state.P = v; if (state.mode === 'oven') render(); });
+Lab.slider('#sl-oven', { id: 'm', label: 'Massa de água', unit: 'g', hint: '50 a 1 000', min: 50, max: 1000, step: 10, value: state.m }, v => { state.m = v; if (state.mode === 'oven') render(); });
+Lab.slider('#sl-oven', { id: 'd', label: 'Furos da tela da porta', unit: 'mm', hint: '0,5 a 150, escala log', min: 0.5, max: 150, log: true, step: 'any', value: state.d }, v => { state.d = v; if (state.mode === 'oven') render(); });
+$('#play').addEventListener('click', () => { if (state.t >= 180) state.t = 0; state.run = !state.run; $('#play').textContent = state.run ? 'Pausar' : 'Aquecer'; render(); });
+$('#stop').addEventListener('click', () => { state.run = false; state.t = 0; $('#play').textContent = 'Aquecer'; render(); });
+$$('.modes button').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+$('#reset').addEventListener('click', () => S && S.resetCamera());
+if (S) S.canvas.addEventListener('keydown', e => { const k = { '1': 'casa', '2': 'oven' }[e.key]; if (k) setMode(k); });
+Lab.theme(d => { if (S) S.applyTheme(d); });
+$$('[data-modes]').forEach(s => { s.hidden = !s.dataset.modes.split(' ').includes(state.mode); });
+render();
+</script>
+</body>
+</html>
