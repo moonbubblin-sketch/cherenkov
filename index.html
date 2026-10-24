@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cherenkov — simuladores 3D de física da radiação</title>
+<meta name="description" content="Coleção de simuladores 3D educacionais: irradiação de grãos, efeito Cherenkov, atenuação de fótons e decaimento radioativo.">
+<link rel="stylesheet" href="assets/lab.css">
+<style>
+.wrap{max-width:1100px;margin:0 auto;padding:.75rem}
+.hero{margin:.75rem 0 1.2rem;padding:clamp(1.2rem,4vw,2.4rem);border:1px solid var(--line);border-radius:28px;background:var(--card);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:var(--shadow);position:relative;overflow:hidden}
+.hero::before{content:"";position:absolute;right:-60px;top:-60px;width:320px;height:320px;border-radius:50%;background:conic-gradient(from 210deg,var(--accent),var(--accent2),#33d6ff,var(--accent));filter:blur(46px);opacity:.45}
+.hero h1{font-size:clamp(1.8rem,5vw,3rem);line-height:1.08;margin:.2rem 0 .6rem;letter-spacing:-.02em;position:relative}
+.hero h1 span{background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{max-width:60ch;color:var(--muted);font-size:1.05rem;margin:.3rem 0;position:relative}
+.hero .eyebrow{font-size:.74rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);position:relative}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1rem}
+.sim{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:24px;background:var(--card);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:var(--shadow);overflow:hidden;text-decoration:none;color:inherit;transition:transform .2s,border-color .2s}
+.sim:hover{transform:translateY(-4px);border-color:var(--accent)}
+.art{height:150px;position:relative;overflow:hidden;background:var(--stage-bg)}
+.art svg{position:absolute;inset:0;width:100%;height:100%}
+.sim .body{padding:1rem 1.1rem 1.1rem;display:flex;flex-direction:column;gap:.45rem;flex:1}
+.sim h2{font-size:1.1rem;margin:0}
+.sim p{margin:0;font-size:.88rem;color:var(--muted)}
+.tags{display:flex;gap:.35rem;flex-wrap:wrap;margin-top:auto;padding-top:.4rem}
+.go{font-weight:700;font-size:.86rem;color:var(--accent);margin-top:.3rem}
+.legend-box{margin-top:1.4rem;padding:1.1rem 1.2rem;border:1px solid var(--line);border-radius:22px;background:var(--card)}
+.legend-box h2{margin:0 0 .5rem;font-size:1rem}
+.legend-box ul{margin:0;padding:0;list-style:none;display:grid;gap:.5rem}
+.legend-box li{display:flex;gap:.6rem;align-items:baseline;font-size:.88rem;color:var(--muted)}
+@keyframes drift{from{transform:translateX(-30px)}to{transform:translateX(30px)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fade{0%,100%{opacity:.25}50%{opacity:1}}
+.drift{animation:drift 3.2s ease-in-out infinite alternate}
+.fade{animation:fade 2.4s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){.drift,.fade{animation:none}.sim{transition:none}}
+</style>
+</head>
+<body>
+<a class="skip" href="#sims">Ir para os simuladores</a>
+<header class="top">
+  <div class="logo" aria-hidden="true"></div>
+  <h1><span>Cherenkov</span> · simuladores 3D</h1>
+  <p>Física da radiação para ver, girar e experimentar.</p>
+  <button id="theme" class="chip" type="button" aria-pressed="false">Tema escuro</button>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <div class="eyebrow">projeto educacional</div>
+    <h1>Veja a física da radiação <span>em três dimensões</span></h1>
+    <p>Cinco simuladores que rodam no navegador, no celular ou no computador. Gire, aproxime e mexa nos parâmetros. Cada número diz de onde veio: de artigo, de equação ou de modelo ilustrativo.</p>
+  </section>
+
+  <section class="grid" id="sims" aria-label="Simuladores">
+    <a class="sim" href="graos.html">
+      <div class="art" aria-hidden="true"><svg viewBox="0 0 300 150" preserveAspectRatio="xMidYMid slice">
+        <defs><linearGradient id="g1" x1="0" x2="1"><stop offset="0" stop-color="#440154"/><stop offset=".5" stop-color="#21918c"/><stop offset="1" stop-color="#fde725"/></linearGradient></defs>
+        <rect x="60" y="62" width="180" height="56" rx="8" fill="url(#g1)" opacity=".9"/>
+        <g fill="#fff" opacity=".6"><circle cx="90" cy="82" r="5"/><circle cx="130" cy="96" r="5"/><circle cx="170" cy="78" r="5"/><circle cx="210" cy="100" r="5"/></g>
+        <g stroke="#4db8ff" stroke-width="2" class="fade"><path d="M110 10v44M150 6v48M190 10v44"/></g></svg></div>
+      <div class="body"><h2>Irradiação de grãos</h2>
+        <p>Da fábrica ao microscópio: feixe de elétrons, dose em profundidade, pragas e micróbios.</p>
+        <div class="tags"><span class="badge b-calc">ƒ calculado</span><span class="badge b-sim">≈ ilustrativo</span><span class="badge b-exp">■ artigo</span></div>
+        <div class="go">Abrir simulador →</div></div></a>
+
+    <a class="sim" href="efeito-cherenkov.html">
+      <div class="art" aria-hidden="true"><svg viewBox="0 0 300 150" preserveAspectRatio="xMidYMid slice">
+        <path d="M70 75 L210 20 L210 130 Z" fill="#4db8ff" opacity=".35" class="fade"/><path d="M70 75 L210 20" stroke="#9be0ff" stroke-width="2"/><path d="M70 75 L210 130" stroke="#9be0ff" stroke-width="2"/>
+        <circle cx="70" cy="75" r="7" fill="#fff"/><ellipse cx="226" cy="75" rx="12" ry="56" fill="none" stroke="#7fd0ff" stroke-width="3"/></svg></div>
+      <div class="body"><h2>Efeito Cherenkov</h2>
+        <p>O cone de luz azul de uma partícula mais rápida que a luz no meio. Limiar, ângulo e fótons.</p>
+        <div class="tags"><span class="badge b-calc">ƒ calculado</span><span class="badge b-ok">✓ referência</span></div>
+        <div class="go">Abrir simulador →</div></div></a>
+
+    <a class="sim" href="atenuacao.html">
+      <div class="art" aria-hidden="true"><svg viewBox="0 0 300 150" preserveAspectRatio="xMidYMid slice">
+        <rect x="120" y="30" width="60" height="90" rx="4" fill="#9aa3b2" opacity=".6" stroke="#8ea6d0"/>
+        <g class="drift" fill="#ffd166"><circle cx="40" cy="55" r="4"/><circle cx="55" cy="80" r="4"/><circle cx="35" cy="105" r="4"/></g>
+        <g fill="#ff6b5b"><circle cx="135" cy="60" r="4"/><circle cx="150" cy="90" r="4"/></g><g fill="#3fe08f"><circle cx="230" cy="55" r="4"/><circle cx="250" cy="85" r="4"/></g></svg></div>
+      <div class="body"><h2>Atenuação e blindagem</h2>
+        <p>Fótons sorteiam seu caminho até a parede. Compare o Monte Carlo com e<sup>−μx</sup>, com dados do NIST.</p>
+        <div class="tags"><span class="badge b-ok">✓ NIST</span><span class="badge b-calc">ƒ calculado</span><span class="badge b-sim">≈ Monte Carlo</span></div>
+        <div class="go">Abrir simulador →</div></div></a>
+
+    <a class="sim" href="decaimento.html">
+      <div class="art" aria-hidden="true"><svg viewBox="0 0 300 150" preserveAspectRatio="xMidYMid slice">
+        <g fill="#6ea8ff"><circle cx="70" cy="50" r="9"/><circle cx="110" cy="80" r="9"/><circle cx="150" cy="45" r="9"/><circle cx="190" cy="95" r="9"/></g>
+        <g fill="#8d95a8" class="fade"><circle cx="90" cy="105" r="5"/><circle cx="130" cy="115" r="5"/><circle cx="230" cy="60" r="5"/><circle cx="215" cy="120" r="5"/><circle cx="250" cy="100" r="5"/></g></svg></div>
+      <div class="body"><h2>Decaimento radioativo</h2>
+        <p>Milhares de átomos decaem ao acaso e desenham a meia-vida. Co-60, Cs-137, I-131, C-14, Am-241.</p>
+        <div class="tags"><span class="badge b-ok">✓ IAEA</span><span class="badge b-calc">ƒ calculado</span><span class="badge b-sim">≈ sorteio</span></div>
+        <div class="go">Abrir simulador →</div></div></a>
+
+    <a class="sim" href="cotidiano.html">
+      <div class="art" aria-hidden="true"><svg viewBox="0 0 300 150" preserveAspectRatio="xMidYMid slice">
+        <rect x="70" y="50" width="26" height="70" rx="3" fill="#2aa6a0"/><rect x="104" y="40" width="26" height="80" rx="3" fill="#2aa6a0"/><rect x="138" y="32" width="26" height="88" rx="3" fill="#2aa6a0"/>
+        <rect x="172" y="14" width="26" height="106" rx="3" fill="#e5533d"/><rect x="206" y="6" width="26" height="114" rx="3" fill="#e5533d"/>
+        <rect x="50" y="30" width="200" height="4" fill="#ff4d3d" opacity=".8" class="fade"/></svg></div>
+      <div class="body"><h2>Radiação no cotidiano</h2>
+        <p>Micro-ondas, Wi-Fi, celular, raios X: quem ioniza e quem só aquece, e as doses do dia a dia.</p>
+        <div class="tags"><span class="badge b-ok">✓ UNSCEAR · Anatel</span><span class="badge b-calc">ƒ calculado</span><span class="badge b-none">∅ a verificar</span></div>
+        <div class="go">Abrir simulador →</div></div></a>
+  </section>
+
+  <section class="legend-box" aria-labelledby="h-leg">
+    <h2 id="h-leg">Como ler as etiquetas</h2>
+    <ul>
+      <li><span class="badge b-exp">■ experimental</span> valor tirado de um artigo ou experimento.</li>
+      <li><span class="badge b-ok">✓ referência</span> dado de base de dados oficial (NIST, IAEA), com a data da consulta.</li>
+      <li><span class="badge b-calc">ƒ calculado</span> resultado de uma equação, mostrada na própria página.</li>
+      <li><span class="badge b-sim">≈ simulado/ilustrativo</span> vem de um modelo ou de um sorteio; serve para entender, não para medir.</li>
+      <li><span class="badge b-none">∅ sem dados</span> não há dado escolhido; o simulador mostra o estado neutro.</li>
+    </ul>
+    <p class="note">São simuladores educacionais. Não controlam equipamentos e não substituem dosimetria, normas nem revisão por especialistas.</p>
+  </section>
+</main>
+<footer>Cherenkov · coleção de simuladores 3D · feedback é bem-vindo</footer>
+<script src="assets/lab.js"></script>
+<script>Lab.theme();</script>
+</body>
+</html>
