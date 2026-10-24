@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Decaimento radioativo e meia-vida — simulador 3D</title>
+<meta name="description" content="Milhares de átomos sorteiam o instante do decaimento. Veja a lei exponencial nascer do acaso, com meias-vidas de Co-60, Cs-137, I-131, C-14 e Am-241.">
+<link rel="stylesheet" href="assets/lab.css">
+<style>.stage{height:calc(100vh - 6.4rem)}</style>
+</head>
+<body>
+<a class="skip" href="#painel">Ir para controles e resultados</a>
+<header class="top">
+  <div class="logo" aria-hidden="true"></div>
+  <h1><span>Decaimento radioativo</span> · o acaso que vira lei</h1>
+  <p>Cada átomo decai num instante imprevisível, mas o conjunto segue N = N₀ · 2<sup>−t/T½</sup>.</p>
+  <a class="chip" href="index.html">← Todos os simuladores</a>
+  <button id="theme" class="chip" type="button" aria-pressed="false">Tema escuro</button>
+</header>
+
+<main class="layout">
+  <div class="stagewrap">
+    <section class="stage" id="stage" aria-label="Cena 3D com átomos que decaem">
+      <canvas id="gl" tabindex="0" role="img" aria-label="Cubo de átomos; os que decaíram mudam de cor"></canvas>
+      <div id="labels"></div>
+      <div class="nogl" id="nogl">WebGL indisponível neste navegador. Os cálculos ao lado continuam funcionando.</div>
+      <div class="ov glass stamp">átomos esquemáticos · instante de cada decaimento sorteado · não é medição</div>
+      <div class="ov tools"><button type="button" class="chip" id="play" aria-pressed="true">Pausar</button><button type="button" class="chip" id="restart">Reiniciar</button><button type="button" class="chip" id="reset">Câmera</button></div>
+      <div class="ov glass legend" id="legend"></div>
+      <div class="ov glass hint">arraste: girar · rolar ou pinça: zoom</div>
+    </section>
+  </div>
+
+  <div class="panels" id="painel">
+    <section class="card" aria-labelledby="h-par">
+      <h2 id="h-par">Núcleo e amostra</h2>
+      <div class="ctl"><label for="nuc">Radionuclídeo <span class="unit">meia-vida T½</span></label><select id="nuc"></select></div>
+      <fieldset class="ctl"><legend>Átomos na cena</legend><div class="seg" id="nseg"></div></fieldset>
+      <div id="sl"></div>
+    </section>
+
+    <section class="card" aria-labelledby="h-res">
+      <h2 id="h-res">Resultados</h2>
+      <div class="kpis" id="kpis"></div>
+      <div class="rows" id="rows"></div>
+      <div id="chart"></div>
+    </section>
+
+    <section class="card" aria-labelledby="h-eq">
+      <h2 id="h-eq">Como é calculado</h2>
+      <ul class="lim">
+        <li><strong>Lei do decaimento:</strong> N(t) = N₀ · 2<sup>−t/T½</sup> = N₀ · e<sup>−λt</sup>, com λ = ln 2 / T½.</li>
+        <li><strong>Sorteio:</strong> cada átomo recebe um instante t = −ln(u)/λ, com u uniforme em (0,1]. Átomo decai quando o tempo passa desse instante.</li>
+        <li><strong>Atividade da amostra:</strong> A = λN, com N = (massa / massa molar) · N<sub>A</sub>. Usa as massas atômicas do IAEA e N<sub>A</sub> = 6,02214076 × 10²³ mol⁻¹.</li>
+      </ul>
+      <h3>Limitações</h3>
+      <ul class="lim">
+        <li>Meias-vidas: IAEA Nuclear Data Services (LiveChart, ENSDF), consultado em 24/10/2026. A incerteza vem do mesmo banco.</li>
+        <li>Os átomos da cena são poucos (125 a 4 096): a flutuação estatística é real e visível. A atividade de amostra usa o número real de átomos da massa informada.</li>
+        <li>Não há cadeia de decaimento: os filhos (por exemplo, Ni-60, Ba-137m) não são seguidos.</li>
+        <li>As emissões típicas listadas são valores de livro-texto, <strong>ainda não conferidos</strong> nesta coleção.</li>
+        <li>Simulador educacional; não é uma medição.</li>
+      </ul>
+    </section>
+  </div>
+</main>
+<footer>Cherenkov · simulador educacional · parte da coleção de simuladores 3D</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>window.THREE||document.write('<script src="assets/three.min.js"><\/script>')</script>
+<script src="assets/lab.js"></script>
+<script>
+"use strict";
+/* ===== 1. DADOS (IAEA Nuclear Data Services, LiveChart/ENSDF, 24/10/2026) ===== */
+const NA = 6.02214076e23, YEAR_S = 365.25 * 86400;
+const NUCS = [
+  { id:'co60',  nome:'Cobalto-60',   sym:'⁶⁰Co',  hl:1925.28, unc:0.14,  unit:'d', hlS:1925.28 * 86400, M:59.933815,  modo:'β⁻', uso:'fonte de irradiação gama; é o ⁶⁰Co dos estudos de grãos',     emis:'γ de 1,173 e 1,332 MeV' },
+  { id:'cs137', nome:'Césio-137',    sym:'¹³⁷Cs', hl:30.08,   unc:0.09,  unit:'y', hlS:30.08 * YEAR_S,   M:136.907089, modo:'β⁻', uso:'fonte de calibração e irradiadores antigos',                emis:'γ de 0,662 MeV (do ¹³⁷ᵐBa)' },
+  { id:'i131',  nome:'Iodo-131',     sym:'¹³¹I',  hl:8.0252,  unc:0.0006,unit:'d', hlS:8.0252 * 86400,   M:130.906126, modo:'β⁻', uso:'medicina nuclear (tireoide)',                                emis:'γ de 0,364 MeV' },
+  { id:'c14',   nome:'Carbono-14',   sym:'¹⁴C',   hl:5700,    unc:30,    unit:'y', hlS:5700 * YEAR_S,    M:14.003242,  modo:'β⁻', uso:'datação de materiais orgânicos',                              emis:'só β⁻, sem γ' },
+  { id:'am241', nome:'Amerício-241', sym:'²⁴¹Am', hl:432.6,   unc:0.6,   unit:'y', hlS:432.6 * YEAR_S,   M:241.056827, modo:'α',  uso:'detectores de fumaça',                                        emis:'α de ~5,5 MeV e γ de ~59,5 keV' }
+];
+
+/* ===== 2. CÁLCULOS ===== */
+const Phys = {
+  lambda: n => Math.LN2 / n.hlS,
+  frac: tHalf => Math.pow(2, -tHalf),
+  atoms: (n, massKg) => massKg * 1000 / n.M * NA,
+  activityBq(n, massKg, tHalf){ return this.lambda(n) * this.atoms(n, massKg) * this.frac(tHalf); },
+  timeText(sec){
+    const a = Math.abs(sec);
+    if (a >= YEAR_S) return `${Lab.num(sec / YEAR_S, a / YEAR_S < 10 ? 2 : 1)} anos`;
+    if (a >= 86400) return `${Lab.num(sec / 86400, 2)} dias`;
+    if (a >= 3600) return `${Lab.num(sec / 3600, 2)} h`;
+    return `${Lab.num(sec, 1)} s`;
+  },
+  hlText: n => `${Lab.num(n.hl, n.hl < 10 ? 4 : n.hl < 100 ? 2 : 2)} ± ${Lab.num(n.unc, n.unc < 0.01 ? 4 : n.unc < 1 ? 2 : 1)} ${n.unit === 'y' ? 'anos' : 'dias'}`
+};
+function mulberry32(a){ return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+/* ===== 3. CENA ===== */
+const S = Lab.stage({ theta: 0.7, phi: 1.1, radius: 22, target: [0, 0, 0], minR: 6, maxR: 60 });
+const state = { nuc: NUCS[0], n: 1000, t: 0, mass: 0.001, play: true, speed: 0.6 };
+let times = [], order = [], decayed = 0, hold = 0;      // times: instante de cada átomo (em T½), order: índices em ordem de decaimento
+let grid = 10, mesh = null, positions = [];
+
+function seed(){
+  const rng = mulberry32(12345 + state.n);
+  times = Array.from({ length: state.n }, () => -Math.log2(1 - rng()));
+  order = times.map((_, i) => i).sort((a, b) => times[a] - times[b]);
+  decayed = 0;
+}
+
+if (S){
+  const { THREE, scene } = S, V = THREE.Vector3;
+  const geo = new THREE.SphereGeometry(0.5, 14, 10), mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35, metalness: 0.1 });
+  const C_LIVE = new THREE.Color(0x4d8bff), C_DEAD = new THREE.Color(0x8d95a8);
+  const frame = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1)), new THREE.LineBasicMaterial({ color: 0x8ea6d0, transparent: true, opacity: 0.5 })); scene.add(frame);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), pv = new V(), sv = new V(), col = new THREE.Color();
+  S.label('l-cube', '');
+
+  const NB = 320, bp = new THREE.BufferGeometry(), bpos = new Float32Array(NB * 3), bcol = new Float32Array(NB * 3);
+  bp.setAttribute('position', new THREE.BufferAttribute(bpos, 3)); bp.setAttribute('color', new THREE.BufferAttribute(bcol, 3));
+  const bpts = new THREE.Points(bp, new THREE.PointsMaterial({ size: 0.3, vertexColors: true, transparent: true, depthWrite: false })); bpts.frustumCulled = false; scene.add(bpts);
+  const bursts = Array.from({ length: NB }, () => ({ life: 0, p: new V(), v: new V() }));
+  const dir = new V();
+  function spawnBurst(p){
+    const b = bursts.find(x => x.life <= 0); if (!b) return;
+    b.life = 0.7; b.p.copy(p); dir.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize().multiplyScalar(5 + Math.random() * 4); b.v.copy(dir);
+  }
+
+  function setAtom(i, dead){
+    pv.copy(positions[i]); const s = dead ? 0.32 : 0.62;
+    m4.compose(pv, q, sv.set(s, s, s)); mesh.setMatrixAt(i, m4);
+    mesh.setColorAt(i, col.copy(dead ? C_DEAD : C_LIVE).convertSRGBToLinear());
+  }
+  function build(){
+    if (mesh){ scene.remove(mesh); mesh.dispose(); }
+    grid = Math.round(Math.cbrt(state.n));
+    mesh = new THREE.InstancedMesh(geo, mat, grid ** 3);
+    positions = []; const rng = mulberry32(99), off = (grid - 1) / 2;
+    for (let z = 0; z < grid; z++) for (let y = 0; y < grid; y++) for (let x = 0; x < grid; x++)
+      positions.push(new V(x - off + (rng() - 0.5) * 0.18, y - off + (rng() - 0.5) * 0.18, z - off + (rng() - 0.5) * 0.18));
+    for (let i = 0; i < positions.length; i++) setAtom(i, false);
+    mesh.instanceMatrix.needsUpdate = true; mesh.instanceColor.needsUpdate = true;
+    scene.add(mesh);
+    frame.scale.setScalar(grid + 0.6);
+    S.goal.radius = Math.max(S.goal.radius, grid * 1.9); S.orbit.radius = Math.max(S.orbit.radius, grid * 1.9);
+    seed(); decayed = 0;
+  }
+  S.rebuild = build;
+  S.applyTheme = d => { S.dark = d; C_LIVE.set(d ? 0x62a0ff : 0x1f50e0); C_DEAD.set(d ? 0x5b6478 : 0xaab2c4); mat.emissive.set(d ? 0x0a1840 : 0x000000);
+    frame.material.color.set(d ? 0x8ea6d0 : 0x4a5a7a);
+    if (mesh){ const k = decayed; decayed = 0; for (let i = 0; i < positions.length; i++) setAtom(i, false); for (let r = 0; r < k; r++) setAtom(order[r], true); decayed = k; mesh.instanceMatrix.needsUpdate = true; mesh.instanceColor.needsUpdate = true; } };
+
+  S.onTick = dt => {
+    if (state.play && !S.reduced){
+      if (state.t >= 8){ hold += dt; if (hold > 2.2){ hold = 0; state.t = 0; } }
+      else state.t = Math.min(8, state.t + dt * state.speed);
+      tSlider.setSilent(state.t);
+    }
+    // quantos decaíram até t?
+    let lo = 0, hi = order.length;
+    while (lo < hi){ const mid = (lo + hi) >> 1; if (times[order[mid]] <= state.t) lo = mid + 1; else hi = mid; }
+    const k = lo;
+    if (k !== decayed){
+      if (k > decayed){ const step = k - decayed; for (let r = decayed; r < k; r++){ setAtom(order[r], true); if (step < 40 && state.play) spawnBurst(positions[order[r]]); } }
+      else for (let r = k; r < decayed; r++) setAtom(order[r], false);
+      decayed = k; mesh.instanceMatrix.needsUpdate = true; mesh.instanceColor.needsUpdate = true;
+    }
+    const dk = S.dark;
+    bursts.forEach((b, i) => {
+      const j = i * 3;
+      if (b.life <= 0){ bpos[j + 1] = -999; return; }
+      b.life -= dt; b.p.addScaledVector(b.v, dt);
+      bpos[j] = b.p.x; bpos[j + 1] = b.p.y; bpos[j + 2] = b.p.z;
+      const f = Math.max(0, b.life / 0.7);
+      bcol[j] = dk ? f : 0.9 * f + (1 - f) * 0.86; bcol[j + 1] = dk ? 0.8 * f : 0.4 * f + (1 - f) * 0.9; bcol[j + 2] = dk ? 0.3 * f : 0.1 * f + (1 - f) * 0.95;
+    });
+    bp.attributes.position.needsUpdate = true; bp.attributes.color.needsUpdate = true;
+    if ((S._u = (S._u || 0) + dt) > 0.12){ S._u = 0; update(); }
+  };
+  S.onLabels = () => S.place('l-cube', new V(0, grid / 2 + 1.2, 0), true, `${state.n} átomos de ${state.nuc.sym}`);
+}
+
+/* ===== 4. INTERFACE ===== */
+const $ = Lab.$;
+let tSlider;
+function update(){
+  const n = state.nuc, N0 = state.n, k = decayed, left = N0 - k, expect = N0 * Phys.frac(state.t);
+  const tReal = state.t * n.hlS, A = Phys.activityBq(n, state.mass, state.t), A0 = Phys.activityBq(n, state.mass, 0);
+  $('#kpis').innerHTML =
+    `<div class="kpi"><div class="l">Restantes</div><div class="n">${Lab.num(left, 0)}</div><div class="s">de ${Lab.num(N0, 0)} átomos</div>${Lab.badge('sim')}</div>
+     <div class="kpi"><div class="l">Esperado</div><div class="n">${Lab.num(expect, expect < 100 ? 1 : 0)}</div><div class="s">N₀ · 2<sup>−t/T½</sup></div>${Lab.badge('calc')}</div>
+     <div class="kpi"><div class="l">Tempo</div><div class="n">${Lab.num(state.t, 2)}</div><div class="s">meias-vidas · ${Phys.timeText(tReal)}</div>${Lab.badge('calc')}</div>`;
+  const diff = left - expect;
+  $('#legend').innerHTML = `<div class="ttl">${n.nome} · T½ = ${Phys.hlText(n)}<small>azul: intacto · cinza: decaiu · faíscas: decaimento</small></div>
+    <dl><dt>Sorteio ${Lab.badge('sim', 'sim.')}</dt><dd>${Lab.num(left, 0)} restantes</dd><dt>Lei ${Lab.badge('calc', 'calc.')}</dt><dd>${Lab.num(expect, 1)}</dd></dl>`;
+  $('#rows').innerHTML =
+    Lab.row('Meia-vida T½', 'IAEA LiveChart (ENSDF)', Phys.hlText(n), 'ref', 'referência · IAEA') +
+    Lab.row('Constante λ', 'λ = ln 2 / T½', `${Lab.sci(Phys.lambda(n), 3)} s⁻¹`, 'calc') +
+    Lab.row('Vida média τ', 'τ = 1/λ = T½ / ln 2', Phys.timeText(n.hlS / Math.LN2), 'calc') +
+    Lab.row('Modo e emissões', `${n.modo} · ${n.emis}`, n.sym, 'none', '∅ emissões: a verificar') +
+    Lab.row('Diferença sorteio − lei', 'flutuação estatística (≈ √N)', `${diff >= 0 ? '+' : ''}${Lab.num(diff, 1)}`, 'sim') +
+    Lab.row('Átomos na amostra real', `${Lab.num(state.mass * 1000, state.mass < 0.001 ? 4 : 3)} g de ${n.sym}, M = ${Lab.num(n.M, 3)} g/mol`, Lab.sci(Phys.atoms(n, state.mass), 3), 'calc') +
+    Lab.row('Atividade agora', `inicial: ${Lab.sci(A0, 2)} Bq`, `${Lab.sci(A, 2)} Bq`, 'calc') +
+    Lab.row('Atividade agora, em curies', '1 Ci = 3,7 × 10¹⁰ Bq', `${Lab.sci(A / 3.7e10, 2)} Ci`, 'calc') +
+    Lab.row('Uso típico', n.uso, '', 'none', '∅ conceito · a verificar');
+  if (!update.last || performance.now() - update.last > 400){ update.last = performance.now(); chart(); }
+}
+function chart(){
+  const W = 340, H = 200, l = 44, rr = 12, t = 24, b = 36, pw = W - l - rr, ph = H - t - b, N0 = state.n;
+  const X = x => l + x / 8 * pw, Y = f => t + ph - f * ph;
+  let curve = ''; for (let i = 0; i <= 80; i++){ const x = 8 * i / 80; curve += (i ? 'L' : 'M') + X(x).toFixed(1) + ',' + Y(Phys.frac(x)).toFixed(1); }
+  let mc = 'M' + X(0) + ',' + Y(1);
+  const cnt = order.length;
+  for (let r = 0; r < cnt; r += Math.max(1, Math.floor(cnt / 160))){ const x = times[order[r]]; if (x > state.t || x > 8) break; mc += 'L' + X(x).toFixed(1) + ',' + Y(1 - (r + 1) / N0).toFixed(1); }
+  mc += 'L' + X(state.t) + ',' + Y(1 - decayed / N0);
+  $('#chart').innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Fração de átomos restantes versus tempo em meias-vidas">
+    <text x="${l}" y="12" class="ttl">N / N₀ × tempo (em meias-vidas)</text>
+    ${[0, 0.25, 0.5, 0.75, 1].map(v => `<line x1="${l}" x2="${W - rr}" y1="${Y(v)}" y2="${Y(v)}" class="c-grid"/><text x="${l - 4}" y="${Y(v) + 3}" text-anchor="end">${Lab.num(v, 2)}</text>`).join('')}
+    ${[0, 2, 4, 6, 8].map(v => `<text x="${X(v)}" y="${H - 22}" text-anchor="middle">${v}</text>`).join('')}
+    <path d="${curve}" class="c-sim"/><path d="${mc}" fill="none" stroke="var(--accent2)" stroke-width="2"/>
+    <circle cx="${X(state.t)}" cy="${Y(1 - decayed / N0)}" r="4.5" class="c-pt"/>
+    <line x1="${l}" x2="${l}" y1="${t}" y2="${t + ph}" class="c-axis"/><line x1="${l}" x2="${W - rr}" y1="${t + ph}" y2="${t + ph}" class="c-axis"/>
+    <text x="${l + pw / 2}" y="${H - 6}" text-anchor="middle">t / T½ · tracejado: lei · roxo: sorteio</text></svg>`;
+}
+
+const sel = $('#nuc');
+sel.innerHTML = NUCS.map(n => `<option value="${n.id}">${n.nome} (${n.sym}) · T½ = ${Phys.hlText(n)}</option>`).join('');
+sel.addEventListener('change', () => { state.nuc = NUCS.find(n => n.id === sel.value); update(); chart(); });
+$('#nseg').innerHTML = [125, 1000, 4096].map(v => `<label><input type="radio" name="nn" value="${v}" ${v === state.n ? 'checked' : ''}><span>${Lab.num(v, 0)}</span></label>`).join('');
+Lab.$$('input[name=nn]').forEach(i => i.addEventListener('change', () => { state.n = +i.value; state.t = 0; if (S) S.rebuild(); update(); chart(); }));
+tSlider = Lab.slider('#sl', { id: 't', label: 'Tempo decorrido', unit: 'meias-vidas', hint: '0 a 8', min: 0, max: 8, step: 0.01, value: 0 }, v => { state.t = v; hold = 0; update(); });
+tSlider.setSilent = v => { const r = $('#r-t'), n = $('#n-t'); r.value = v; n.value = Number(v.toFixed(2)); Lab.setP(r); };
+Lab.slider('#sl', { id: 'speed', label: 'Velocidade da animação', unit: 'T½ por segundo', hint: '0,1 a 3', min: 0.1, max: 3, step: 0.1, value: state.speed }, v => { state.speed = v; });
+Lab.slider('#sl', { id: 'mass', label: 'Massa da amostra real (para a atividade)', unit: 'kg', hint: '10⁻⁹ a 1, escala log', min: 1e-9, max: 1, log: true, step: 'any', value: state.mass }, v => { state.mass = v; update(); });
+$('#play').addEventListener('click', e => { state.play = !state.play; e.currentTarget.setAttribute('aria-pressed', state.play); e.currentTarget.textContent = state.play ? 'Pausar' : 'Reproduzir'; });
+$('#restart').addEventListener('click', () => { state.t = 0; hold = 0; $('#n-t').value = 0; $('#r-t').value = 0; Lab.setP($('#r-t')); });
+$('#reset').addEventListener('click', () => S && S.resetCamera());
+$('#play').setAttribute('aria-pressed', state.play);
+if (S){ S.rebuild(); Lab.theme(d => S.applyTheme(d)); } else { Lab.theme(); seed(); }
+update(); chart();
+</script>
+</body>
+</html>

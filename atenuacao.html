@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Atenuação de fótons e blindagem — simulador 3D</title>
+<meta name="description" content="Dispare fótons contra uma parede de concreto, chumbo, ferro, alumínio ou água e compare o sorteio de Monte Carlo com a lei exponencial.">
+<link rel="stylesheet" href="assets/lab.css">
+<style>.stage{height:calc(100vh - 6.4rem)}</style>
+</head>
+<body>
+<a class="skip" href="#painel">Ir para controles e resultados</a>
+<header class="top">
+  <div class="logo" aria-hidden="true"></div>
+  <h1><span>Atenuação e blindagem</span> · fótons contra uma parede</h1>
+  <p>Cada fóton sorteia quanto anda antes de interagir. A fração que atravessa segue I/I₀ = e<sup>−μx</sup>.</p>
+  <a class="chip" href="index.html">← Todos os simuladores</a>
+  <button id="theme" class="chip" type="button" aria-pressed="false">Tema escuro</button>
+</header>
+
+<main class="layout">
+  <div class="stagewrap">
+    <section class="stage" id="stage" aria-label="Cena 3D de fótons atravessando uma placa">
+      <canvas id="gl" tabindex="0" role="img" aria-label="Fótons disparados contra uma placa; alguns interagem dentro dela, outros a atravessam"></canvas>
+      <div id="labels"></div>
+      <div class="nogl" id="nogl">WebGL indisponível neste navegador. Os cálculos ao lado continuam funcionando.</div>
+      <div class="ov glass stamp">feixe estreito · Monte Carlo simples · espessura da placa fora de escala</div>
+      <div class="ov tools"><button type="button" class="chip" id="reset">Câmera</button><button type="button" class="chip" id="zero">Zerar contagem</button></div>
+      <div class="ov glass legend" id="legend"></div>
+      <div class="ov glass hint">arraste: girar · rolar ou pinça: zoom</div>
+    </section>
+  </div>
+
+  <div class="panels" id="painel">
+    <section class="card" aria-labelledby="h-par">
+      <h2 id="h-par">Fóton e material</h2>
+      <div class="ctl"><label for="mat">Material da placa <span class="unit">densidade ρ</span></label><select id="mat"></select></div>
+      <div id="sl"></div>
+      <h3>Cenários prontos</h3>
+      <div class="btnrow" id="presets"></div>
+    </section>
+
+    <section class="card" aria-labelledby="h-res">
+      <h2 id="h-res">Resultados</h2>
+      <div class="kpis" id="kpis"></div>
+      <div class="rows" id="rows"></div>
+      <div id="chart"></div>
+    </section>
+
+    <section class="card" aria-labelledby="h-eq">
+      <h2 id="h-eq">Como é calculado</h2>
+      <ul class="lim">
+        <li><strong>Lei de atenuação:</strong> I/I₀ = e<sup>−μx</sup>, com μ = (μ/ρ)·ρ.</li>
+        <li><strong>Camada semi-redutora:</strong> HVL = ln 2 / μ. <strong>Décimo-redutora:</strong> TVL = ln 10 / μ.</li>
+        <li><strong>Monte Carlo:</strong> cada fóton sorteia um caminho livre s = −ln(u)/μ, com u uniforme em (0,1]. Se s &lt; x, ele interage na profundidade s; senão atravessa.</li>
+        <li>μ/ρ vem das tabelas de coeficientes de atenuação de massa do NIST, interpolado em escala log-log entre os pontos tabelados.</li>
+      </ul>
+      <h3>Limitações</h3>
+      <ul class="lim">
+        <li>Feixe estreito: conta só fótons que <strong>não interagiram</strong>. Fótons espalhados que ainda saem da placa (fator de acúmulo, <i>buildup</i>) <strong>não</strong> entram. Para blindagem real isso importa.</li>
+        <li>O fóton que interage some do feixe; o simulador não segue o espalhamento Compton nem a produção de pares.</li>
+        <li>O μ/ρ usado é o total, incluindo espalhamento coerente (coluna “com coerente” das tabelas do NIST).</li>
+        <li>Concreto é o “ordinário” do NIST, com ρ = 2,30 g/cm³. Concretos reais variam.</li>
+        <li>Simulador educacional; não serve para projetar blindagem.</li>
+      </ul>
+    </section>
+  </div>
+</main>
+<footer>Cherenkov · simulador educacional · parte da coleção de simuladores 3D</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>window.THREE||document.write('<script src="assets/three.min.js"><\/script>')</script>
+<script src="assets/lab.js"></script>
+<script>
+"use strict";
+/* ===== 1. DADOS: NIST, tabelas de coeficientes de atenuação de massa (μ/ρ total, cm²/g) =====
+   Fonte: https://physics.nist.gov/PhysRefData/XrayMassCoef/ (consultado em 24/10/2026). */
+const E_GRID = [0.1,0.15,0.2,0.3,0.4,0.5,0.6,0.8,1,1.25,1.5,2,3,4,5,6,8,10];       // MeV
+const MATS = [
+  { id:'agua',     nome:'Água',               rho:1.0,   color:0x4aa3ff, op:0.28,
+    mu:[0.1707,0.1505,0.137,0.1186,0.1061,0.09687,0.08956,0.07865,0.07072,0.06323,0.05754,0.04942,0.03969,0.03403,0.03031,0.0277,0.02429,0.02219] },
+  { id:'concreto', nome:'Concreto (ordinário, NIST)', rho:2.3, color:0x9aa3b2, op:0.85,
+    mu:[0.1738,0.1436,0.1282,0.1097,0.09783,0.08915,0.08236,0.07227,0.06495,0.05807,0.05288,0.04557,0.03701,0.03217,0.02908,0.02697,0.02432,0.02278] },
+  { id:'aluminio', nome:'Alumínio',           rho:2.699, color:0xc4ccd8, op:0.85,
+    mu:[0.1704,0.1378,0.1223,0.1042,0.09276,0.08445,0.07802,0.06841,0.06146,0.05496,0.05006,0.04324,0.03541,0.03106,0.02836,0.02655,0.02437,0.02318] },
+  { id:'ferro',    nome:'Ferro',              rho:7.874, color:0x7a8696, op:0.9,
+    mu:[0.3717,0.1964,0.146,0.1099,0.094,0.08414,0.07704,0.06699,0.05995,0.0535,0.04883,0.04265,0.03621,0.03312,0.03146,0.03057,0.02991,0.02994] },
+  { id:'chumbo',   nome:'Chumbo',             rho:11.35, color:0x4a4f63, op:0.95,
+    mu:[5.549,2.014,0.9985,0.4031,0.2323,0.1614,0.1248,0.0887,0.07102,0.05876,0.05222,0.04606,0.04234,0.04197,0.04272,0.04391,0.04675,0.04972] }
+];
+const PRESETS = [
+  { nome:'Parede de concreto da célula (1 MeV, 100 cm)', m:'concreto', E:1, x:100 },
+  { nome:'Avental de chumbo (0,1 MeV, 0,5 cm)', m:'chumbo', E:0.1, x:0.5 },
+  { nome:'Água como blindagem (1 MeV, 20 cm)', m:'agua', E:1, x:20 },
+  { nome:'Chumbo, ⁶⁰Co (1,25 MeV, 5 cm)', m:'chumbo', E:1.25, x:5 },
+  { nome:'Alumínio fino (0,5 MeV, 2 cm)', m:'aluminio', E:0.5, x:2 }
+];
+
+/* ===== 2. CÁLCULOS ===== */
+const Phys = {
+  muRho(mat, E){                                   // interpolação log-log
+    const g = E_GRID, y = mat.mu;
+    if (E <= g[0]) return y[0]; if (E >= g[g.length - 1]) return y[y.length - 1];
+    for (let i = 1; i < g.length; i++) if (E <= g[i]){
+      const t = Math.log(E / g[i - 1]) / Math.log(g[i] / g[i - 1]);
+      return Math.exp(Math.log(y[i - 1]) + t * (Math.log(y[i]) - Math.log(y[i - 1])));
+    }
+  },
+  run(mat, E, x){
+    const muRho = this.muRho(mat, E), mu = muRho * mat.rho;
+    return { muRho, mu, hvl: Math.LN2 / mu, tvl: Math.LN10 / mu, tau: mu * x, T: Math.exp(-mu * x),
+             onGrid: E_GRID.some(e => Math.abs(e - E) / e < 1e-6) };
+  }
+};
+
+/* ===== 3. CENA ===== */
+const S = Lab.stage({ theta: 0.9, phi: 1.2, radius: 24, target: [0, 0, 0], minR: 8, maxR: 60 });
+const state = { mat: MATS[1], E: 1, x: 10, rate: 30 };
+let res = Phys.run(state.mat, state.E, state.x);
+const mc = { emitted: 0, trans: 0, inter: 0 };
+const SL = 6;                                                                 // espessura visual da placa
+let applyMat = () => {};
+
+if (S){
+  const { THREE, scene } = S, V = THREE.Vector3;
+  const slabMat = new THREE.MeshStandardMaterial({ color: 0x9aa3b2, transparent: true, opacity: 0.5, roughness: 0.6, depthWrite: false });
+  const slab = new THREE.Mesh(new THREE.BoxGeometry(SL, 7, 7), slabMat); scene.add(slab);
+  const slabEdges = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(SL, 7, 7)), new THREE.LineBasicMaterial({ color: 0x8ea6d0 })); scene.add(slabEdges);
+  const src = new THREE.Mesh(new THREE.ConeGeometry(0.7, 1.6, 24), new THREE.MeshStandardMaterial({ color: 0xffb347, emissive: 0x663300 })); src.rotation.z = Math.PI / 2; src.position.set(-11.5, 0, 0); scene.add(src);
+  const det = new THREE.Mesh(new THREE.BoxGeometry(0.4, 5, 5), new THREE.MeshStandardMaterial({ color: 0x3fbf8f, emissive: 0x0a3a2a })); det.position.set(10.5, 0, 0); scene.add(det);
+  S.label('l-src', ''); S.label('l-slab', ''); S.label('l-det', '');
+
+  const N = 260, pts = new THREE.BufferGeometry(), pos = new Float32Array(N * 3), col = new Float32Array(N * 3);
+  pts.setAttribute('position', new THREE.BufferAttribute(pos, 3)); pts.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  const points = new THREE.Points(pts, new THREE.PointsMaterial({ size: 0.28, vertexColors: true, transparent: true, depthWrite: false })); points.frustumCulled = false; scene.add(points);
+  const ph = Array.from({ length: N }, () => ({ st: 0, x: 0, y: 0, z: 0, stopX: 0, age: 0 }));    // st: 0 livre, 1 voando, 2 parou, 3 passou
+  let acc = 0;
+  const X_SRC = -10.8, X_SLAB0 = -SL / 2, X_SLAB1 = SL / 2, X_END = 10.2, SPEED = 14;
+
+  function fire(p){
+    p.st = 1; p.x = X_SRC; const r = 1.6 * Math.sqrt(Math.random()), a = Math.random() * 6.2832; p.y = r * Math.cos(a); p.z = r * Math.sin(a); p.age = 0;
+    const s = -Math.log(1 - Math.random()) / res.mu;                       // caminho livre (cm)
+    p.stopX = s < state.x ? X_SLAB0 + s / state.x * SL : null;
+    mc.emitted++;
+  }
+  applyMat = () => { slabMat.color.set(state.mat.color); slabMat.opacity = state.mat.op * (S.dark ? 0.7 : 0.9); };
+  S.applyTheme = d => { S.dark = d; applyMat(); slabEdges.material.color.set(d ? 0x8ea6d0 : 0x4a5a7a); };
+
+  S.onTick = dt => {
+    acc += dt * state.rate;
+    while (acc >= 1){ acc -= 1; const p = ph.find(q => q.st === 0); if (p) fire(p); }
+    const dk = S.dark;
+    ph.forEach((p, i) => {
+      const k = i * 3;
+      if (p.st === 0){ pos[k + 1] = -999; return; }
+      p.age += dt;
+      if (p.st === 1){
+        p.x += SPEED * dt;
+        if (p.stopX !== null && p.x >= p.stopX){ p.x = p.stopX; p.st = 2; p.age = 0; mc.inter++; }
+        else if (p.stopX === null && p.x >= X_SLAB1 && p.x - SPEED * dt < X_SLAB1){ mc.trans++; p.st = 3; p.age = 0; }
+        else if (p.x > X_END){ p.st = 0; }
+      } else if (p.st === 3){
+        p.x += SPEED * dt; if (p.x > X_END) p.st = 0;
+      } else if (p.st === 2){ if (p.age > 2.2) p.st = 0; }
+      pos[k] = p.x; pos[k + 1] = p.y; pos[k + 2] = p.z;
+      let r, g, b;
+      if (p.st === 2){ const f = Math.max(0, 1 - p.age / 2.2); r = dk ? 1 : 0.85; g = (dk ? 0.35 : 0.15) + 0 * f; b = 0.15; const m = dk ? f : 0.35 + 0.65 * f; r *= m; g *= m; b *= m; }
+      else if (p.st === 3){ r = dk ? 0.3 : 0.0; g = dk ? 1 : 0.55; b = dk ? 0.8 : 0.4; }
+      else { r = dk ? 1 : 0.9; g = dk ? 0.92 : 0.55; b = dk ? 0.55 : 0; }
+      col[k] = r; col[k + 1] = g; col[k + 2] = b;
+    });
+    pts.attributes.position.needsUpdate = true; pts.attributes.color.needsUpdate = true;
+    if (!S._t || (S._t += dt) > 0.25){ S._t = 0.001; stats(); }
+  };
+  S.onLabels = () => {
+    S.place('l-src', new V(X_SRC, 1.6, 0), true, 'fonte de fótons');
+    S.place('l-slab', new V(0, 4.1, 0), true, `${state.mat.nome} · ${Lab.num(state.x, 1)} cm`);
+    S.place('l-det', new V(10.5, 3.2, 0), true, 'detector');
+  };
+}
+
+/* ===== 4. INTERFACE ===== */
+const $ = Lab.$;
+function stats(){
+  const done = mc.trans + mc.inter, p = done ? mc.trans / done : 0, sd = done ? Math.sqrt(p * (1 - p) / done) : 0;
+  $('#mc').innerHTML =
+    Lab.row('Fótons já decididos (sorteio)', 'atravessaram + interagiram', Lab.num(done, 0), 'sim') +
+    Lab.row('Atravessaram sem interagir', `${Lab.num(mc.trans, 0)} fótons`, done ? `${Lab.num(p * 100, 1)} % ± ${Lab.num(sd * 100, 1)}` : '—', 'sim') +
+    Lab.row('Esperado pela lei exponencial', 'e^(−μx)', `${Lab.num(res.T * 100, res.T < 0.01 ? 5 : 2)} %`, 'calc');
+  $('#legend').innerHTML = `<div class="ttl">${state.mat.nome} · ${Lab.num(state.E, 2)} MeV · ${Lab.num(state.x, 1)} cm<small>amarelo: em voo · vermelho: interagiu · verde: atravessou</small></div>
+    <dl><dt>Transmitido (lei) ${Lab.badge('calc', 'calc.')}</dt><dd>${Lab.num(res.T * 100, res.T < 0.01 ? 4 : 1)} %</dd><dt>Sorteio ${Lab.badge('sim', 'sim.')}</dt><dd>${done ? Lab.num(p * 100, 1) + ' %' : '—'}</dd></dl>`;
+}
+function render(){
+  res = Phys.run(state.mat, state.E, state.x);
+  const r = res, f = (v, d = 3) => Lab.num(v, d);
+  $('#kpis').innerHTML =
+    `<div class="kpi"><div class="l">Transmitido</div><div class="n">${r.T < 1e-4 ? Lab.sci(r.T, 1) : f(r.T * 100, r.T < 0.01 ? 4 : 2) + '%'}</div><div class="s">e<sup>−μx</sup></div>${Lab.badge('calc')}</div>
+     <div class="kpi"><div class="l">HVL</div><div class="n">${f(r.hvl, r.hvl < 1 ? 3 : 2)}</div><div class="s">cm · meia camada</div>${Lab.badge('calc')}</div>
+     <div class="kpi"><div class="l">TVL</div><div class="n">${f(r.tvl, r.tvl < 1 ? 3 : 2)}</div><div class="s">cm · décima camada</div>${Lab.badge('calc')}</div>`;
+  $('#rows').innerHTML =
+    Lab.row('μ/ρ (NIST)', r.onGrid ? 'valor tabelado' : 'interpolado log-log entre pontos tabelados', `${f(r.muRho, 4)} cm²/g`, 'ref', 'referência · NIST') +
+    Lab.row('Densidade ρ', state.mat.nome, `${f(state.mat.rho, 3)} g/cm³`, 'ref', 'referência · NIST') +
+    Lab.row('Coeficiente linear μ', 'μ = (μ/ρ)·ρ', `${f(r.mu, 4)} cm⁻¹`, 'calc') +
+    Lab.row('Profundidade óptica μx', 'número de caminhos livres médios', f(r.tau, 3), 'calc') +
+    `<div id="mc"></div>`;
+  chart(); stats();
+  if (S){ applyMat(); }
+}
+function chart(){
+  const W = 340, H = 200, l = 48, rr = 12, t = 24, b = 36, pw = W - l - rr, ph = H - t - b;
+  const xmax = Math.max(state.x * 1.5, res.tvl * 6, 0.5), floor = -8;
+  const X = x => l + x / xmax * pw, Y = lg => t + (0 - Math.max(lg, floor)) / (0 - floor) * ph;
+  let path = ''; for (let i = 0; i <= 80; i++){ const x = xmax * i / 80, lg = -res.mu * x / Math.LN10; path += (i ? 'L' : 'M') + X(x).toFixed(1) + ',' + Y(lg).toFixed(1); }
+  const cur = `<circle cx="${X(state.x)}" cy="${Y(Math.log10(Math.max(res.T, 1e-12)))}" r="4.5" class="c-pt"/>`;
+  $('#chart').innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Fração transmitida em escala logarítmica versus espessura">
+    <text x="${l}" y="12" class="ttl">fração transmitida × espessura (escala log)</text>
+    ${[0, -2, -4, -6, -8].map(v => `<line x1="${l}" x2="${W - rr}" y1="${Y(v)}" y2="${Y(v)}" class="c-grid"/><text x="${l - 4}" y="${Y(v) + 3}" text-anchor="end">10^${v}</text>`).join('')}
+    ${[0, 0.5, 1].map(f => `<text x="${X(xmax * f)}" y="${H - 22}" text-anchor="middle">${Lab.num(xmax * f, xmax < 5 ? 2 : 0)}</text>`).join('')}
+    <path d="${path}" class="c-line"/>${cur}
+    <line x1="${l}" x2="${l}" y1="${t}" y2="${t + ph}" class="c-axis"/><line x1="${l}" x2="${W - rr}" y1="${t + ph}" y2="${t + ph}" class="c-axis"/>
+    <text x="${l + pw / 2}" y="${H - 6}" text-anchor="middle">espessura x (cm)</text></svg>`;
+}
+
+const sel = $('#mat');
+sel.innerHTML = MATS.map(m => `<option value="${m.id}">${m.nome} · ρ = ${Lab.num(m.rho, 3)} g/cm³</option>`).join('');
+sel.value = state.mat.id;
+const slE = Lab.slider('#sl', { id: 'E', label: 'Energia do fóton', unit: 'MeV', hint: '0,1 a 10, escala log', min: 0.1, max: 10, log: true, step: 'any', value: state.E }, v => { state.E = v; render(); });
+const slX = Lab.slider('#sl', { id: 'x', label: 'Espessura da placa', unit: 'cm', hint: '0,1 a 200, escala log', min: 0.1, max: 200, log: true, step: 'any', value: state.x }, v => { state.x = v; mcReset(); render(); });
+Lab.slider('#sl', { id: 'rate', label: 'Fótons por segundo', unit: '/s', min: 5, max: 80, step: 5, value: state.rate }, v => { state.rate = v; });
+function mcReset(){ mc.emitted = mc.trans = mc.inter = 0; }
+sel.addEventListener('change', () => { state.mat = MATS.find(m => m.id === sel.value); mcReset(); render(); });
+$('#presets').innerHTML = PRESETS.map((p, i) => `<button type="button" class="btn" data-i="${i}">${p.nome}</button>`).join('');
+Lab.$$('#presets button').forEach(b => b.addEventListener('click', () => {
+  const p = PRESETS[+b.dataset.i]; state.mat = MATS.find(m => m.id === p.m); sel.value = p.m; state.E = p.E; state.x = p.x;
+  slE.set(p.E); slX.set(p.x);
+}));
+$('#reset').addEventListener('click', () => S && S.resetCamera());
+$('#zero').addEventListener('click', () => { mcReset(); stats(); });
+Lab.theme(d => { if (S) S.applyTheme(d); });
+render();
+</script>
+</body>
+</html>

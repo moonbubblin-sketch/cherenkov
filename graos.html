@@ -1,0 +1,1761 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cherenkov — simulador de irradiação de grãos</title>
+<meta name="description" content="Simulador educacional 3D: fábrica de irradiação, camada de grãos e visão microscópica de pragas. Dados de demonstração, não validados.">
+<style>
+:root{
+  --bg:#f3f5fb; --card:rgba(255,255,255,.82); --card-solid:#ffffff; --field:#eef1f9;
+  --ink:#0e1525; --muted:#475268; --line:rgba(14,21,37,.12); --track:rgba(14,21,37,.14);
+  --accent:#2350f0; --accent2:#7a3cff; --accent-ink:#ffffff; --glow1:rgba(35,80,240,.16); --glow2:rgba(122,60,255,.12);
+  --warn-bg:#fff3d6; --warn-ink:#5e3500; --warn-line:#d9961b;
+  --min:#d0261a; --max:#8f5400;
+  --b-exp:#0a7a56; --b-calc:#1f4fd1; --b-sim:#944a00; --b-none:#475268; --b-ok:#0a7a56;
+  --stage-bg:radial-gradient(120% 90% at 50% -10%,#f1f5ff 0%,#d9e2f6 60%,#c8d4ee 100%);
+  --scene-edge:#4a5a7a; --shadow:0 18px 50px -24px rgba(20,35,80,.35); --focus:#2350f0;
+  --sans:"Inter","Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,Roboto,sans-serif;
+  --mono:ui-monospace,"Cascadia Code","SF Mono",Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#060912; --card:rgba(17,24,42,.74); --card-solid:#101828; --field:#0b1222;
+    --ink:#eaf0ff; --muted:#a9b6d3; --line:rgba(160,185,255,.16); --track:rgba(160,185,255,.22);
+    --accent:#6ea8ff; --accent2:#a78bfa; --accent-ink:#06101f; --glow1:rgba(70,120,255,.22); --glow2:rgba(150,100,255,.16);
+    --warn-bg:#2b2110; --warn-ink:#ffd98f; --warn-line:#8a6420;
+    --min:#ff7a6b; --max:#ffd27a;
+    --b-exp:#5eead4; --b-calc:#93c5fd; --b-sim:#fcd34d; --b-none:#a9b6d3; --b-ok:#5eead4;
+    --stage-bg:radial-gradient(110% 85% at 50% -10%,#16275a 0%,#0b1330 55%,#070b18 100%);
+    --scene-edge:#8ea6d0; --shadow:0 18px 60px -28px rgba(0,0,0,.8); --focus:#9cc4ff; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#060912; --card:rgba(17,24,42,.74); --card-solid:#101828; --field:#0b1222;
+  --ink:#eaf0ff; --muted:#a9b6d3; --line:rgba(160,185,255,.16); --track:rgba(160,185,255,.22);
+  --accent:#6ea8ff; --accent2:#a78bfa; --accent-ink:#06101f; --glow1:rgba(70,120,255,.22); --glow2:rgba(150,100,255,.16);
+  --warn-bg:#2b2110; --warn-ink:#ffd98f; --warn-line:#8a6420;
+  --min:#ff7a6b; --max:#ffd27a;
+  --b-exp:#5eead4; --b-calc:#93c5fd; --b-sim:#fcd34d; --b-none:#a9b6d3; --b-ok:#5eead4;
+  --stage-bg:radial-gradient(110% 85% at 50% -10%,#16275a 0%,#0b1330 55%,#070b18 100%);
+  --scene-edge:#8ea6d0; --shadow:0 18px 60px -28px rgba(0,0,0,.8); --focus:#9cc4ff; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;min-height:100vh;color:var(--ink);font-family:var(--sans);line-height:1.5;font-size:15px;
+  background:radial-gradient(60% 50% at 8% 0%,var(--glow1),transparent 70%),radial-gradient(50% 45% at 100% 10%,var(--glow2),transparent 70%),var(--bg);
+  background-attachment:fixed;-webkit-font-smoothing:antialiased}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px;border-radius:8px}
+.skip{position:absolute;left:-999px;top:0;background:var(--accent);color:var(--accent-ink);padding:.5rem 1rem;z-index:50;border-radius:0 0 10px 0}
+.skip:focus{left:0}
+
+header.top{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem 1rem;margin:.75rem .75rem 0;padding:.6rem .9rem;
+  border:1px solid var(--line);border-radius:18px;background:var(--card);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:var(--shadow)}
+.logo{width:30px;height:30px;border-radius:50%;flex:none;background:conic-gradient(from 210deg,var(--accent),var(--accent2),#33d6ff,var(--accent));
+  box-shadow:0 0 0 4px var(--glow1),0 0 22px var(--accent);position:relative}
+.logo::after{content:"";position:absolute;inset:8px;border-radius:50%;background:var(--card-solid)}
+header.top h1{font-size:1.15rem;margin:0;font-weight:750;letter-spacing:-.01em}
+header.top h1 span{background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+header.top p{margin:0;color:var(--muted);font-size:.82rem;flex:1 1 260px}
+.chip{display:inline-flex;align-items:center;gap:.4rem;font:inherit;font-size:.78rem;font-weight:600;cursor:pointer;color:var(--ink);
+  border:1px solid var(--line);background:var(--card-solid);padding:.38rem .8rem;border-radius:999px;transition:transform .15s,border-color .15s,background .15s}
+.chip:hover{border-color:var(--accent);transform:translateY(-1px)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.pill-note{font-size:.72rem;font-weight:700;letter-spacing:.02em;color:var(--warn-ink);background:var(--warn-bg);border:1px solid var(--warn-line);padding:.2rem .6rem;border-radius:999px}
+
+.layout{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(360px,.85fr);gap:.9rem;padding:.9rem .75rem;align-items:start;max-width:1800px;margin:0 auto}
+.stagewrap{position:sticky;top:.75rem;display:flex;flex-direction:column;gap:.6rem}
+.modes{display:flex;gap:.35rem;padding:.3rem;background:var(--card);border:1px solid var(--line);border-radius:18px;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:var(--shadow)}
+.modes button{flex:1;font:inherit;font-size:.86rem;font-weight:700;color:var(--muted);background:transparent;border:0;border-radius:14px;padding:.55rem .6rem;cursor:pointer;display:flex;gap:.5rem;align-items:center;justify-content:center;line-height:1.15;text-align:left}
+.modes button small{display:block;font-weight:500;font-size:.68rem;opacity:.85}
+.modes .k{font-family:var(--mono);font-size:.72rem;border:1px solid var(--line);border-radius:8px;padding:.05rem .4rem;flex:none}
+.modes button[aria-pressed="true"]{background:linear-gradient(90deg,var(--accent),var(--accent2));color:var(--accent-ink)}
+.modes button[aria-pressed="true"] .k{border-color:currentColor}
+.stage{position:relative;height:calc(100vh - 10.6rem);min-height:420px;border:1px solid var(--line);border-radius:26px;background:var(--stage-bg);overflow:hidden;box-shadow:var(--shadow)}
+.stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+.stage canvas:active{cursor:grabbing}
+.fade{position:absolute;inset:0;background:var(--bg);opacity:0;pointer-events:none;transition:opacity .18s}
+.fade.on{opacity:.95}
+.ov{position:absolute;font-size:.72rem;pointer-events:none;color:var(--ink)}
+.glass{background:var(--card);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:14px}
+.stamp{left:.7rem;top:.7rem;padding:.3rem .65rem;max-width:calc(100% - 11rem);font-weight:600;color:var(--muted)}
+.hint{right:.7rem;bottom:.7rem;padding:.25rem .6rem;color:var(--muted);text-align:right;border-radius:999px}
+.tools{right:.7rem;top:.7rem;display:flex;gap:.4rem;pointer-events:auto}
+.tools .chip{padding:.3rem .65rem}
+.legend{left:.7rem;bottom:.7rem;padding:.55rem .75rem .6rem;width:min(330px,calc(100% - 9.5rem))}
+.legend .ttl{font-weight:700;margin-bottom:.4rem;line-height:1.25}
+.legend .ttl small{display:block;font-weight:500;color:var(--muted)}
+.legend .bar{height:12px;border-radius:999px;position:relative;box-shadow:inset 0 0 0 1px var(--line)}
+.legend .mk{position:absolute;top:-6px;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid var(--min);transform:translateX(-5px)}
+.legend .mkt{position:relative;height:1.2em;color:var(--min);font-weight:700;margin-top:2px}
+.legend .mkt span{position:absolute;white-space:nowrap;transform:translateX(-50%)}
+.legend .ticks{display:flex;justify-content:space-between;font-family:var(--mono);color:var(--muted)}
+.legend dl{display:grid;grid-template-columns:1fr auto;gap:.15rem .8rem;margin:0}
+.legend dt{color:var(--muted)} .legend dd{margin:0;font-family:var(--mono);font-weight:700;text-align:right}
+.lbl{position:absolute;left:0;top:0;font-size:.7rem;padding:.15rem .5rem;white-space:nowrap;pointer-events:none;display:none;
+  background:var(--card);backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:999px;font-weight:600}
+.lbl.min{border-color:var(--min);color:var(--min);font-weight:700}
+.lbl.probe{border-color:var(--accent);color:var(--accent);font-weight:700}
+.nogl{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;padding:2rem;color:var(--muted)}
+
+.panels{display:flex;flex-direction:column;gap:.9rem;min-width:0}
+.card{background:var(--card);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--line);border-radius:22px;padding:1rem 1.05rem;box-shadow:var(--shadow)}
+.card h2{font-size:1rem;margin:0 0 .6rem;font-weight:700;letter-spacing:-.005em}
+.card h3{font-size:.72rem;margin:1rem 0 .35rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700}
+.ctl{margin:.7rem 0}
+.ctl label,.ctl legend{display:flex;justify-content:space-between;gap:.5rem;font-size:.84rem;font-weight:600;margin-bottom:.3rem;padding:0}
+.ctl .unit{color:var(--muted);font-weight:500;font-size:.74rem;text-align:right}
+.pair{display:grid;grid-template-columns:1fr 6.4rem;gap:.8rem;align-items:center}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:24px;background:transparent;margin:0;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:999px;background:linear-gradient(90deg,var(--accent),var(--accent2)) 0/var(--p,0%) 100% no-repeat,var(--track)}
+input[type=range]::-moz-range-track{height:6px;border-radius:999px;background:linear-gradient(90deg,var(--accent),var(--accent2)) 0/var(--p,0%) 100% no-repeat,var(--track)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;margin-top:-7px;border-radius:50%;background:#fff;border:3px solid var(--accent);box-shadow:0 2px 8px rgba(0,0,0,.3)}
+input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid var(--accent);box-shadow:0 2px 8px rgba(0,0,0,.3)}
+input[type=number],select,textarea{font-family:var(--mono);font-size:.86rem;padding:.4rem .6rem;border:1px solid var(--line);background:var(--field);color:var(--ink);width:100%;border-radius:12px}
+textarea{min-height:7.5rem;resize:vertical;line-height:1.4}
+select{font-family:var(--sans)}
+input[aria-invalid="true"]{border-color:var(--min);outline:2px solid var(--min)}
+fieldset{border:0;margin:.7rem 0 0;padding:0}
+.seg{display:flex;gap:.3rem;background:var(--field);padding:.25rem;border-radius:999px;border:1px solid var(--line)}
+.seg label{flex:1;margin:0;text-align:center;cursor:pointer;position:relative;display:block;font-weight:600;font-size:.82rem}
+.seg input{position:absolute;opacity:0;inset:0;cursor:pointer}
+.seg span{display:block;padding:.4rem .5rem;border-radius:999px;transition:background .15s,color .15s}
+.seg input:checked+span{background:linear-gradient(90deg,var(--accent),var(--accent2));color:var(--accent-ink)}
+.seg label:has(input:focus-visible){outline:3px solid var(--focus);outline-offset:2px;border-radius:999px}
+.chips{display:flex;flex-wrap:wrap;gap:.4rem;margin:.4rem 0}
+.tog{position:relative;display:inline-flex}
+.tog input{position:absolute;opacity:0;inset:0;cursor:pointer;margin:0}
+.tog span{display:inline-flex;gap:.35rem;align-items:center;font-size:.78rem;font-weight:600;border:1px solid var(--line);background:var(--field);color:var(--muted);padding:.32rem .7rem;border-radius:999px}
+.tog input:checked+span{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.tog:has(input:focus-visible) span{outline:3px solid var(--focus);outline-offset:2px}
+.sw{width:.7rem;height:.7rem;border-radius:50%;display:inline-block}
+.btnrow{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.6rem}
+.btn{font:inherit;font-size:.82rem;font-weight:650;cursor:pointer;border:1px solid var(--line);background:var(--card-solid);color:var(--ink);padding:.5rem 1rem;border-radius:999px}
+.btn.pri{background:linear-gradient(90deg,var(--accent),var(--accent2));color:var(--accent-ink);border-color:transparent}
+.btn:hover{filter:brightness(1.08)}
+.btn.sm{padding:.3rem .7rem;font-size:.76rem}
+
+.tabs{display:flex;gap:.3rem;background:var(--field);padding:.25rem;border-radius:999px;border:1px solid var(--line);overflow-x:auto}
+.tabs button{flex:1 0 auto;font:inherit;font-size:.8rem;font-weight:650;color:var(--muted);background:transparent;border:0;padding:.45rem .85rem;border-radius:999px;cursor:pointer;white-space:nowrap}
+.tabs button[aria-selected="true"]{background:var(--card-solid);color:var(--ink);box-shadow:0 1px 8px rgba(0,0,0,.18)}
+[role=tabpanel]{margin-top:.9rem}
+[role=tabpanel][hidden],[hidden]{display:none!important}
+
+.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.55rem;margin-bottom:.4rem}
+.kpi{border:1px solid var(--line);border-radius:16px;padding:.6rem .7rem;background:var(--field);min-width:0}
+.kpi .l{font-size:.7rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.kpi .n{font-family:var(--mono);font-size:1.3rem;font-weight:750;line-height:1.2;margin:.15rem 0;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.kpi .s{font-size:.68rem;color:var(--muted);margin-bottom:.25rem}
+.kpi .badge{white-space:normal;display:inline-block;line-height:1.3;padding:.1rem .45rem}
+.kpi.min{border-color:color-mix(in srgb,var(--min) 55%,transparent)} .kpi.min .l{color:var(--min)}
+.kpi.max .l{color:var(--max)}
+.rows{display:flex;flex-direction:column}
+.row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.1rem .8rem;padding:.55rem 0;border-bottom:1px solid var(--line);align-items:baseline}
+.row:last-child{border-bottom:0}
+.row .k{font-size:.85rem;font-weight:550}
+.row .k small{display:block;color:var(--muted);font-size:.74rem;font-weight:400}
+.row .val{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:.2rem}
+.v{font-family:var(--mono);font-size:.98rem;font-weight:700;font-variant-numeric:tabular-nums}
+.badge{font-size:.66rem;font-weight:650;padding:.05rem .5rem;border-radius:999px;white-space:nowrap;line-height:1.55;color:var(--bc,var(--ink));
+  background:color-mix(in srgb,var(--bc) 14%,transparent);border:1px solid color-mix(in srgb,var(--bc) 55%,transparent)}
+.b-exp{--bc:var(--b-exp)} .b-calc{--bc:var(--b-calc)} .b-sim{--bc:var(--b-sim)} .b-none{--bc:var(--b-none)} .b-ok{--bc:var(--b-ok)}
+.b-sim{border-style:dashed} .b-none{border-style:dotted}
+.alert{background:var(--warn-bg);color:var(--warn-ink);border:1px solid var(--warn-line);border-radius:14px;padding:.6rem .8rem;font-size:.82rem;margin:.6rem 0}
+.alert.info{background:var(--field);color:var(--ink);border-color:var(--line)}
+.note{font-size:.78rem;color:var(--muted);margin:.5rem 0}
+svg.chart{width:100%;height:auto;display:block;background:var(--field);border:1px solid var(--line);border-radius:16px;margin-top:.5rem}
+svg.chart text{font-family:var(--mono);font-size:9.5px;fill:var(--muted)}
+svg.chart .ttl{fill:var(--ink);font-weight:700;font-family:var(--sans)}
+.c-axis{stroke:var(--muted);stroke-width:1;fill:none}
+.c-grid{stroke:var(--line);stroke-width:.8}
+.c-sim{stroke:var(--accent);stroke-width:2;fill:none;stroke-dasharray:5 3}
+.c-dot{fill:var(--b-exp);stroke:var(--card-solid);stroke-width:1.5}
+.c-min{stroke:var(--min);fill:var(--min)} .c-max{stroke:var(--max);fill:var(--max)}
+table{border-collapse:separate;border-spacing:0;width:100%;font-size:.8rem;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+th,td{padding:.5rem .6rem;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}
+tr:last-child td{border-bottom:0}
+th{background:var(--field);font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+td.dose{font-family:var(--mono);font-weight:700;white-space:nowrap}
+td.grp{background:var(--field);font-weight:700}
+.tbl-wrap{overflow-x:auto}
+ul.lim,ol.refs{margin:.2rem 0 0;padding-left:1.1rem;font-size:.84rem}
+ul.lim li,ol.refs li{margin:.45rem 0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
+.fld label{display:block;font-size:.76rem;font-weight:650;margin:.5rem 0 .2rem}
+details{margin-top:.6rem} summary{cursor:pointer;font-weight:650;font-size:.82rem}
+.benefits{display:grid;gap:.6rem}
+.bcard{border:1px solid var(--line);border-radius:16px;padding:.7rem .8rem;background:var(--field)}
+.bcard h4{margin:0 0 .2rem;font-size:.9rem}
+.bcard p{margin:.2rem 0;font-size:.8rem;color:var(--muted)}
+.bcard .live{display:flex;justify-content:space-between;align-items:center;gap:.6rem;margin-top:.4rem;flex-wrap:wrap}
+.org-row{display:grid;grid-template-columns:auto 1fr auto;gap:.1rem .6rem;align-items:center;padding:.4rem 0;border-bottom:1px solid var(--line)}
+.org-row:last-child{border-bottom:0}
+.bar2{height:6px;border-radius:999px;background:var(--track);overflow:hidden;grid-column:1 / -1}
+.bar2 i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+footer{padding:1rem;text-align:center;color:var(--muted);font-size:.76rem}
+
+@media (max-width:960px){
+  .layout{grid-template-columns:minmax(0,1fr);padding:.5rem}
+  header.top{margin:.5rem .5rem 0}
+  .stagewrap{top:.4rem;z-index:5}
+  .modes button small{display:none}
+  .modes button{font-size:.76rem;padding:.45rem .3rem}
+  .stage{height:42vh;min-height:280px;border-radius:22px}
+  .legend{width:min(250px,calc(100% - 1.4rem));bottom:.5rem;font-size:.66rem}
+  .hint{display:none}
+  .stamp{max-width:calc(100% - 9rem);font-size:.64rem}
+  .kpi .n{font-size:1.05rem}
+}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.chip,.seg span,.fade{transition:none}}
+</style>
+</head>
+<body>
+<a class="skip" href="#painel">Ir para controles e resultados</a>
+<header class="top">
+  <div class="logo" aria-hidden="true"></div>
+  <h1><span>Cherenkov</span> · irradiação de grãos</h1>
+  <p>Simulador educacional com feixe de elétrons: da fábrica ao microscópio. Os números ainda são de demonstração, salvo onde marcados.</p>
+  <a class="chip" href="index.html">← Todos os simuladores</a>
+  <span class="pill-note">dados em definição · nada aqui é medição</span>
+  <button id="theme" class="chip" type="button" aria-pressed="false">Tema escuro</button>
+</header>
+
+<main class="layout">
+  <div class="stagewrap">
+    <div class="modes" role="group" aria-label="Escolha da visão">
+      <button type="button" data-mode="factory" aria-pressed="true"><span class="k">1</span><span>Visão geral<small>fábrica de irradiação</small></span></button>
+      <button type="button" data-mode="layer" aria-pressed="false"><span class="k">2</span><span>Camada de grãos<small>dose em profundidade</small></span></button>
+      <button type="button" data-mode="micro" aria-pressed="false"><span class="k">3</span><span>Visão microscópica<small>grão, pragas e micróbios</small></span></button>
+    </div>
+    <section class="stage" id="stage" aria-label="Cena 3D">
+      <canvas id="gl" tabindex="0" role="img" aria-label="Cena 3D do simulador"></canvas>
+      <div id="labels"></div>
+      <div class="nogl" id="nogl">WebGL indisponível neste navegador. Os cálculos ao lado continuam funcionando.</div>
+      <div class="ov glass stamp" id="stamp"></div>
+      <div class="ov tools">
+        <button type="button" class="chip" id="cut" aria-pressed="true" title="Esconde uma parte para mostrar o interior">Corte</button>
+        <button type="button" class="chip" id="reset" title="Voltar a câmera ao enquadramento inicial">Câmera</button>
+      </div>
+      <div class="ov glass legend" id="legend"></div>
+      <div class="ov glass hint">arraste: girar · rolar ou pinça: zoom · teclas 1 2 3 e setas</div>
+      <div class="fade" id="fade"></div>
+    </section>
+  </div>
+
+  <div class="panels" id="painel">
+    <section class="card" aria-labelledby="h-ctl">
+      <h2 id="h-ctl">Parâmetros do feixe e da amostra</h2>
+      <div id="controls"></div>
+      <fieldset class="ctl">
+        <legend>Lados irradiados</legend>
+        <div class="seg">
+          <label><input type="radio" name="sides" value="1"><span>1 lado (topo)</span></label>
+          <label><input type="radio" name="sides" value="2" checked><span>2 lados (topo e base)</span></label>
+        </div>
+      </fieldset>
+    </section>
+
+    <section class="card" id="ctx-factory" aria-labelledby="h-fac" data-modes="factory">
+      <h2 id="h-fac">Linha de irradiação</h2>
+      <div id="sl-factory"></div>
+      <p class="note">A esteira leva lotes do silo até a célula blindada, onde o feixe varre o lote, e depois à expedição. A animação é acelerada e a geometria é de demonstração. <strong>Clique em um lote</strong> para abrir a camada de grãos dele.</p>
+      <div class="btnrow"><button type="button" class="btn pri" data-goto="layer">Ver camada de grãos</button><button type="button" class="btn" data-goto="micro">Ver microscópio</button></div>
+    </section>
+
+    <section class="card" id="ctx-probe" aria-labelledby="h-probe" data-modes="layer micro">
+      <h2 id="h-probe">Sonda de profundidade</h2>
+      <div id="sl-probe"></div>
+      <div class="btnrow">
+        <button type="button" class="btn sm" id="pb-surf">Superfície</button>
+        <button type="button" class="btn sm" id="pb-min">Ponto de Dmin</button>
+        <button type="button" class="btn sm" id="pb-max">Ponto de Dmax</button>
+        <button type="button" class="btn sm" data-goto="micro" id="pb-micro">Ver este ponto no microscópio</button>
+      </div>
+      <p class="note" id="probe-out"></p>
+    </section>
+
+    <section class="card" id="ctx-micro" aria-labelledby="h-mic" data-modes="micro">
+      <h2 id="h-mic">Controle de pragas e micróbios</h2>
+      <div class="alert" id="micro-banner" role="note"></div>
+      <div id="sl-micro"></div>
+      <div class="chips" role="group" aria-label="Organismos exibidos" id="grp-chips"></div>
+      <div class="btnrow">
+        <button type="button" class="btn pri" id="irr">Irradiar (animar)</button>
+        <button type="button" class="btn" id="irr-zero">Zerar dose</button>
+      </div>
+      <h3>Situação neste ponto</h3>
+      <div id="micro-out"></div>
+      <div class="fld"><label for="resp-model">Modelo de resposta à dose</label>
+        <select id="resp-model">
+          <option value="demo">Demonstração (parâmetros editáveis, sem base em dados)</option>
+          <option value="tabela1">Tabela 1: só ovos, radiação gama (artigo)</option>
+        </select></div>
+      <details id="demo-params"><summary>Parâmetros de demonstração</summary>
+        <p class="note">Estes valores são de <strong>demonstração visual</strong>, sem base em dados. Serão substituídos quando escolhermos e verificarmos as fontes.</p>
+        <div class="grid2" id="d50-fields"></div>
+        <div class="fld"><label for="k-slope">Inclinação da curva (adimensional)</label><input type="number" id="k-slope" min="1" max="8" step="0.5" value="3"></div>
+      </details>
+    </section>
+
+    <section class="card" aria-label="Resultados">
+      <div class="tabs" role="tablist" aria-label="Seções de resultados">
+        <button role="tab" id="t-res" aria-controls="p-res" aria-selected="true">Dose</button>
+        <button role="tab" id="t-ben" aria-controls="p-ben" aria-selected="false" tabindex="-1">Benefícios</button>
+        <button role="tab" id="t-pest" aria-controls="p-pest" aria-selected="false" tabindex="-1">Pragas</button>
+        <button role="tab" id="t-evid" aria-controls="p-evid" aria-selected="false" tabindex="-1">Evidências</button>
+        <button role="tab" id="t-dados" aria-controls="p-dados" aria-selected="false" tabindex="-1">Dados e limites</button>
+      </div>
+
+      <div role="tabpanel" id="p-res" aria-labelledby="t-res">
+        <div class="kpis" id="kpis"></div>
+        <div class="alert info" id="depth-note"></div>
+        <h3>Dose absorvida e energia</h3>
+        <div class="rows" id="out-dose"></div>
+        <p class="note">D = E / m, com 1 Gy = 1 J/kg.</p>
+        <div class="rows" id="out-uni"></div>
+        <div id="chart-depth"></div>
+      </div>
+
+      <div role="tabpanel" id="p-ben" aria-labelledby="t-ben" hidden>
+        <div class="alert info">Hipóteses educacionais, não promessas. Cada cartão diz se o número é calculado ou se é só um conceito ainda sem fonte verificada.</div>
+        <div class="benefits" id="benefits"></div>
+      </div>
+
+      <div role="tabpanel" id="p-pest" aria-labelledby="t-pest" hidden>
+        <div class="alert" role="note"><strong>Aviso:</strong> os dados são de irradiação <strong>gama</strong>, só de <strong>ovos de <i>Sitotroga cerealella</i> com menos de 24 h</strong>. A curva <strong>não foi medida para elétrons</strong>. Fonte: Abdel Halim et al., 2025, Tabela 1.</div>
+        <div class="rows" id="out-pest"></div>
+        <div id="chart-pest"></div>
+      </div>
+
+      <div role="tabpanel" id="p-evid" aria-labelledby="t-evid" hidden>
+        <div class="tbl-wrap"><table id="tbl-micro"></table></div>
+        <p class="note">Sem curvas e sem percentuais. Cada linha é um resultado isolado, de estudo, matriz e condição próprios; não compare linhas entre si. Um valor aqui é um achado de estudo, não uma dose recomendada (isso inclui os 10 kGy). O padrão Codex fixa a dose mínima pela finalidade e a máxima pela integridade do produto, e não uma dose recomendada.. Doses que agem sobre pragas e sobre microrganismos não são equivalentes. Os estudos usaram radiação gama, não elétrons.</p>
+      </div>
+
+      <div role="tabpanel" id="p-dados" aria-labelledby="t-dados" hidden>
+        <h3>Alcance dos elétrons: NIST ESTAR</h3>
+        <div id="estar-box"></div>
+
+        <h3>Sua curva de dose em profundidade</h3>
+        <p class="note">Cole dados de uma medição ou de uma simulação (Monte Carlo, por exemplo) para substituir a curva ilustrativa. A curva vale só para a energia informada.</p>
+        <div class="fld">
+          <label for="imp-txt">Pares profundidade, dose relativa (um por linha; separador ; tab ou espaço)</label>
+          <textarea id="imp-txt" spellcheck="false" placeholder="0;1,00&#10;0,5;1,25&#10;1;1,10&#10;..."></textarea>
+        </div>
+        <div class="grid2">
+          <div class="fld"><label for="imp-unit">Unidade da profundidade</label>
+            <select id="imp-unit"><option value="cm">cm</option><option value="gcm2">g/cm²</option></select></div>
+          <div class="fld"><label for="imp-e">Energia dos dados (MeV)</label>
+            <input type="number" id="imp-e" min="0.5" max="10" step="0.1" value="5"></div>
+        </div>
+        <div class="fld"><label for="imp-type">Origem dos dados</label>
+          <select id="imp-type"><option value="exp">medição (experimental)</option><option value="sim">simulação (simulado/ilustrativo)</option><option value="calc">cálculo por equação (calculado)</option></select></div>
+        <div class="btnrow"><button type="button" class="btn pri" id="imp-apply">Aplicar curva</button><button type="button" class="btn" id="imp-clear">Voltar à ilustrativa</button></div>
+        <p class="note" id="imp-msg" role="status" aria-live="polite"></p>
+
+        <h3>Limitações</h3>
+        <ul class="lim" id="lim"></ul>
+        <h3>Referências e estado da verificação</h3>
+        <ol class="refs" id="refs"></ol>
+      </div>
+    </section>
+  </div>
+</main>
+<footer>Cherenkov · simulador educacional · não controla equipamentos · não substitui dosimetria</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>window.THREE||document.write('<script src="assets/three.min.js"><\/script>')</script>
+<script>
+"use strict";
+/* ==========================================================================
+   SEÇÃO 1 — DADOS
+   Números publicados vêm daqui, com a fonte. Valores de demonstração ficam
+   em DEMO e são marcados como tais na interface.
+   ========================================================================== */
+const DATA = {
+  physics: {
+    bulkDensity: 0.78,       // g/cm³: SUPOSIÇÃO para trigo a granel (a verificar)
+    specificHeat: 1800,      // J/(kg·K): SUPOSIÇÃO para grãos (a verificar)
+    estar: {
+      source: 'NIST ESTAR, água líquida (matno 276), tabela de alcance CSDA',
+      url: 'https://physics.nist.gov/PhysRefData/Star/Text/ESTAR.html',
+      queried: '23/10/2026',
+      csda: [[0.5,0.1766],[0.55,0.2013],[0.6,0.2265],[0.7,0.2778],[0.8,0.3302],[0.9,0.3832],[1,0.4367],
+             [1.25,0.5717],[1.5,0.7075],[1.75,0.8432],[2,0.9785],[2.5,1.247],[3,1.514],[3.5,1.777],
+             [4,2.037],[4.5,2.295],[5,2.550],[5.5,2.802],[6,3.052],[7,3.545],[8,4.030],[9,4.506],[10,4.975]]
+    }
+  },
+  pests: {
+    source: 'Abdel Halim et al., 2025, Tabela 1',
+    points: [[0,2.44],[50,19.44],[70,32.78],[90,57.67],[110,80.00],[130,91.78],[150,99.12]],
+    reported: { ld25: 58.32, ld50: 79.73, ld90: 144.41, method: 'Probit', hatchRed150: 99.10 }
+  },
+  micro: [
+    { dose:'1 kGy',  text:'inibe coliformes e estafilococos coagulase-positivos' },
+    { dose:'5 kGy',  text:'inibe fungos' },
+    { dose:'10 kGy', text:'reduz três ordens logarítmicas de bactérias aeróbias' },
+    { dose:'15 kGy', text:'elimina os microrganismos viáveis investigados, com exceção: cerca de 10 a 30 UFC/g de <i>Clostridium</i> sp. sobreviveram' }
+  ],
+  microSrc: 'Aziz, Souzan e Shahin, 2006 (quatro cereais, ⁶⁰Co gama)',
+  quality: [
+    { dose:'360 Gy', text:'sem mudanças significativas nos constituintes químicos da farinha nem nas propriedades físicas e sensoriais do pão', src:'Resumo IAEA, ICARST 2025 (fonte ainda não localizada)' }
+  ],
+  refs: [
+    { ok:true, html:'Abdel Halim, E. M.; Ahmed, S. S.; El-Mandarawy, M. B. R.; Naroz, M. H. (2025). Impact of gamma irradiation alone or in combination with <i>Trichogramma</i> spp. on the life stages of <i>Sitotroga cerealella</i>. <i>Egyptian Journal of Biological Pest Control</i>. DOI 10.1186/s41938-025-00855-2.',
+      status:'existência, autoria e LD25/LD50/LD90 conferidos no resumo (Crossref). Os valores da Tabela 1 não foram conferidos: o texto completo não ficou acessível.' },
+    { ok:true, html:'Aziz, N. H.; Souzan, R. M.; Shahin, A. A. (2006). Effect of γ-irradiation on the occurrence of pathogenic microorganisms and nutritive value of four principal cereal grains. <i>Applied Radiation and Isotopes</i> 64(12):1555-1562. DOI 10.1016/j.apradiso.2005.10.006.',
+      status:'doses e efeitos de 1, 5, 10 e 15 kGy conferidos no resumo (PubMed 16504526).' },
+    { ok:false, html:'IAEA (2025). Resumo apresentado no ICARST 2025: dose de 360 Gy em trigo, farinha e pão.',
+      status:'não localizado em busca pública. Continua a verificar; use o resumo original.' },
+    { ok:true, html:'NIST ESTAR: Stopping-Power and Range Tables for Electrons (água líquida).',
+      status:'alcance CSDA consultado em 23/10/2026 e embutido neste arquivo.' }
+  ]
+};
+
+// Valores de DEMONSTRAÇÃO (sem base em dados). Existem só para a animação ter o que mostrar.
+const DEMO = {
+  groups: [
+    { id:'ovos',      name:'Ovos',          label:'ovos',            d50:100,  color:'#f1e2cf' },
+    { id:'larvas',    name:'Larvas',        label:'larva',           d50:300,  color:'#e3c77f' },
+    { id:'adultos',   name:'Adultos',       label:'mariposa adulta', d50:500,  color:'#b79a6b' },
+    { id:'fungos',    name:'Fungos',        label:'fungo (hifas)',   d50:2500, color:'#9b6cff' },
+    { id:'bacterias', name:'Bactérias',     label:'bactérias',       d50:1000, color:'#3fd0c0' }
+  ],
+  k: 3,
+  factory: { lotPitchM: 1.5, cellLengthM: 8 }   // geometria de demonstração
+};
+
+/* ==========================================================================
+   SEÇÃO 2 — CÁLCULOS (puros: sem Three.js e sem DOM)
+   ========================================================================== */
+const Calc = (() => {
+
+  const Dose = {
+    gray(energyJ, massKg){ return massKg > 0 ? energyJ / massKg : NaN; },
+    energyJ(doseGy, massKg){ return doseGy * massKg; }
+  };
+
+  /* aquecimento adiabático máximo: ΔT = D / c  (toda a energia vira calor, sem perdas) */
+  const Thermal = { deltaK(doseGy){ return doseGy / DATA.physics.specificHeat; } };
+
+  /* vazão da esteira: lotes/h = v (m/min) · 60 / passo (m) */
+  const Throughput = {
+    lotsPerHour(vMmin){ return vMmin * 60 / DEMO.factory.lotPitchM; },
+    kgPerHour(vMmin, massKg){ return this.lotsPerHour(vMmin) * massKg; }
+  };
+
+  const Estar = (() => {
+    const t = DATA.physics.estar.csda;
+    return {
+      csdaGcm2(E){
+        if (E <= t[0][0]) return t[0][1] * E / t[0][0];
+        for (let i = 1; i < t.length; i++){
+          if (E <= t[i][0]){
+            const [x0,y0] = t[i-1], [x1,y1] = t[i];
+            return y0 + (y1 - y0) * (E - x0) / (x1 - x0);
+          }
+        }
+        return t[t.length - 1][1];
+      }
+    };
+  })();
+
+  const DepthDose = (() => {
+    const models = new Map();
+    let active = 'ilustrativa';
+
+    const illustrative = {
+      id: 'ilustrativa',
+      label: 'curva ilustrativa, não validada',
+      type: 'sim',
+      rangeCm(E){ return Estar.csdaGcm2(E) / DATA.physics.bulkDensity; },
+      relative(z, E){
+        const R = this.rangeCm(E);
+        if (z < 0 || z >= R) return 0;
+        const x = z / R, xm = 0.3, pk = 1.35;
+        return x <= xm
+          ? 1 + (pk - 1) * Math.sin(Math.PI / 2 * x / xm)
+          : pk * Math.pow(Math.cos(Math.PI / 2 * (x - xm) / (1 - xm)), 1.3);
+      }
+    };
+    models.set(illustrative.id, illustrative);
+
+    function tabularModel(id, label, type, rows, energyMeV){
+      const y0 = rows[0][1] > 0 ? rows[0][1] : Math.max(...rows.map(r => r[1]));
+      return {
+        id, label, type, energyMeV,
+        rangeCm(){ return rows[rows.length - 1][0]; },
+        relative(z){
+          if (z < rows[0][0] || z > rows[rows.length - 1][0]) return 0;
+          for (let i = 1; i < rows.length; i++){
+            if (z <= rows[i][0]){
+              const [x0,a] = rows[i-1], [x1,b] = rows[i];
+              return (a + (b - a) * (z - x0) / (x1 - x0)) / y0;
+            }
+          }
+          return 0;
+        }
+      };
+    }
+
+    function parseTable(text, unit, density){
+      const rows = [];
+      const lines = text.split(/\r?\n/).map(s => s.trim()).filter(s => s && !/^[#/]/.test(s));
+      for (const ln of lines){
+        const hasSep = /[;\t]/.test(ln);
+        const parts = (hasSep ? ln.replace(/,/g, '.').split(/[;\t]+/) : ln.split(/[,\s]+/)).filter(Boolean);
+        if (parts.length < 2) continue;
+        const x = parseFloat(parts[0].replace(',', '.')), y = parseFloat(parts[1].replace(',', '.'));
+        if (!isFinite(x) || !isFinite(y)){ if (rows.length === 0) continue; return { error: `Linha inválida: "${ln}"` }; }
+        rows.push([unit === 'gcm2' ? x / density : x, y]);
+      }
+      if (rows.length < 3) return { error: 'Informe ao menos 3 pontos numéricos.' };
+      for (let i = 1; i < rows.length; i++) if (!(rows[i][0] > rows[i-1][0])) return { error: 'As profundidades precisam ser crescentes.' };
+      if (rows.some(r => r[0] < 0 || r[1] < 0)) return { error: 'Profundidade e dose não podem ser negativas.' };
+      if (!rows.some(r => r[1] > 0)) return { error: 'Todas as doses são zero.' };
+      return { rows };
+    }
+
+    function profile({T, E, sides, Ds}, n = 241){
+      const m = models.get(active);
+      const z = new Float64Array(n), D = new Float64Array(n);
+      for (let i = 0; i < n; i++){
+        const zi = T * i / (n - 1);
+        let r = m.relative(zi, E);
+        if (sides === 2) r += m.relative(T - zi, E);
+        z[i] = zi; D[i] = Ds * r;
+      }
+      return { z, D, rangeCm: m.rangeCm(E), modelLabel: m.label, type: m.type, energyMeV: m.energyMeV ?? null, modelId: m.id };
+    }
+
+    function at(p, zq){
+      const n = p.z.length, T = p.z[n - 1];
+      if (T <= 0) return p.D[0];
+      const f = Math.min(Math.max(zq / T, 0), 1) * (n - 1);
+      const i = Math.min(Math.floor(f), n - 2), t = f - i;
+      return p.D[i] * (1 - t) + p.D[i + 1] * t;
+    }
+
+    return {
+      register(model){ models.set(model.id, model); },
+      use(id){ if (models.has(id)) active = id; },
+      tabularModel, parseTable, profile, at
+    };
+  })();
+
+  function uniformity(p){
+    const { z, D } = p, n = D.length;
+    let mn = Infinity, mx = -Infinity, iMax = 0, area = 0;
+    for (let i = 0; i < n; i++){
+      if (D[i] < mn) mn = D[i];
+      if (D[i] > mx){ mx = D[i]; iMax = i; }
+      if (i) area += 0.5 * (D[i] + D[i-1]) * (z[i] - z[i-1]);
+    }
+    const T = z[n - 1];
+    const thr = mn + 1e-6 * Math.max(mx, 1e-12);
+    const minZs = [];
+    for (let i = 0; i < n; ){
+      if (D[i] <= thr){
+        let j = i; while (j + 1 < n && D[j + 1] <= thr) j++;
+        minZs.push((z[i] + z[j]) / 2);
+        i = j + 1;
+      } else i++;
+    }
+    return { min: mn, max: mx, mean: T > 0 ? area / T : D[0], zMax: z[iMax], minZs, dur: mn > 0 ? mx / mn : null };
+  }
+
+  const Pests = (() => {
+    const pts = DATA.pests.points;
+    const lo = pts[0][0], hi = pts[pts.length - 1][0];
+    function at(dose){
+      if (!(dose >= lo && dose <= hi)) return { status: 'sem-dados' };
+      for (let i = 0; i < pts.length; i++)
+        if (Math.abs(dose - pts[i][0]) < 1e-9) return { status: 'ok', value: pts[i][1], measured: true };
+      for (let i = 1; i < pts.length; i++){
+        if (dose <= pts[i][0]){
+          const [x0,y0] = pts[i-1], [x1,y1] = pts[i];
+          return { status: 'ok', value: y0 + (y1 - y0) * (dose - x0) / (x1 - x0), measured: false };
+        }
+      }
+      return { status: 'sem-dados' };
+    }
+    function doseFor(percent){
+      for (let i = 1; i < pts.length; i++){
+        if (percent <= pts[i][1]){
+          const [x0,y0] = pts[i-1], [x1,y1] = pts[i];
+          return x0 + (x1 - x0) * (percent - y0) / (y1 - y0);
+        }
+      }
+      return null;
+    }
+    return { at, doseFor, control: pts[0][1], lo, hi };
+  })();
+
+  /* Resposta à dose por grupo de organismos.
+     cfg = { model: 'demo' | 'tabela1', d50: {grupo: Gy}, k }.
+     Devolve { status, p (fração inativada 0..1), type, demo }. Sem dado: status 'sem-dados'. */
+  const DoseResponse = {
+    pDead(group, dose, cfg){
+      if (cfg.model === 'tabela1'){
+        if (group !== 'ovos') return { status: 'sem-dados' };
+        const r = Pests.at(dose);
+        return r.status === 'ok' ? { status: 'ok', p: r.value / 100, type: r.measured ? 'exp' : 'sim', demo: false } : { status: 'sem-dados' };
+      }
+      const d50 = cfg.d50[group];
+      const p = dose <= 0 ? 0 : 1 / (1 + Math.pow(d50 / dose, cfg.k));
+      return { status: 'ok', p, type: 'sim', demo: true };
+    }
+  };
+
+  function run(state){
+    const prof = DepthDose.profile(state);
+    const uni = uniformity(prof);
+    return {
+      prof, uni, R: prof.rangeCm,
+      csda: Estar.csdaGcm2(state.E),
+      energy: { atSurfaceJ: Dose.energyJ(state.Ds, state.m), meanJ: Dose.energyJ(uni.mean, state.m) },
+      pests: { min: Pests.at(uni.min), max: Pests.at(uni.max) }
+    };
+  }
+
+  return { Dose, Thermal, Throughput, Estar, DepthDose, uniformity, Pests, DoseResponse, run };
+})();
+
+/* ==========================================================================
+   SEÇÃO 3 — PALETA E FORMATAÇÃO
+   ========================================================================== */
+const Palette = (() => {
+  const stops = [
+    [0.000,[68,1,84]],[0.125,[72,40,120]],[0.250,[62,73,137]],[0.375,[49,104,142]],
+    [0.500,[38,130,142]],[0.625,[31,158,137]],[0.750,[53,183,121]],[0.875,[110,206,88]],[1.000,[253,231,37]]
+  ];
+  function rgb(t){
+    t = Math.min(Math.max(t, 0), 1);
+    for (let i = 1; i < stops.length; i++){
+      if (t <= stops[i][0]){
+        const [t0,c0] = stops[i-1], [t1,c1] = stops[i], u = (t - t0) / (t1 - t0);
+        return c0.map((v,k) => (v + (c1[k] - v) * u) / 255);
+      }
+    }
+    return stops[stops.length-1][1].map(v => v / 255);
+  }
+  const css = 'linear-gradient(90deg,' + stops.map(([t,c]) => `rgb(${c.join(',')}) ${t*100}%`).join(',') + ')';
+  return { rgb, css, neutral: [0.54,0.56,0.6] };
+})();
+
+const Fmt = (() => {
+  const cache = {};
+  const nf = d => cache[d] || (cache[d] = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: d }));
+  const num = (x, d = 2) => (x === null || x === undefined || !isFinite(x)) ? '—' : nf(d).format(x);
+  const gy = x => x >= 1000 ? `${num(x,0)} Gy (${num(x/1000,2)} kGy)` : `${num(x, x < 10 ? 2 : 1)} Gy`;
+  const joule = x => `${num(x, x < 10 ? 3 : 1)} J`;
+  return { num, gy, joule };
+})();
+
+/* ==========================================================================
+   SEÇÃO 4 — CENA 3D (apenas lê os resultados de Calc)
+   Três visões no mesmo renderizador: fábrica, camada e micro.
+   ========================================================================== */
+const Scene3D = (() => {
+  const V = THREE.Vector3;
+  const reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let renderer, scene, camera, canvas, stage, labelHost, ready = false;
+  let mode = 'factory', cur = null, clock = 0;
+  const views = {};
+  const POSES = {
+    factory: { theta: 0.55, phi: 1.1,  radius: 38, target: [0, 2.2, 0], lim: [12, 90] },
+    layer:   { theta: 0.7,  phi: 1.18, radius: 26, target: [0, 2.5, 0], lim: [7, 90] },
+    micro:   { theta: 0.35, phi: 1.28, radius: 10, target: [0, 0, 0],   lim: [4, 34] }
+  };
+  const orbit = { theta: 0.55, phi: 1.1, radius: 38, target: new V(0, 2.2, 0) };
+  const goal  = { theta: 0.55, phi: 1.1, radius: 38, target: new V(0, 2.2, 0) };
+  const beamMix = { base: [0.1, 0.4, 1], bg: [0, 0, 0], dark: false };
+  const labels = new Map();
+
+  const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const lin = c => c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  const hexToLin = h => { const n = parseInt(h.slice(1), 16); return [lin((n >> 16 & 255) / 255), lin((n >> 8 & 255) / 255), lin((n & 255) / 255)]; };
+  function mulberry32(a){ return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  const std = (c, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.7, metalness: 0.05 }, o));
+  const box = (w, h, d, mat, x, y, z, parent) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); if (parent) parent.add(m); return m; };
+
+  function makeLabel(id, cls){
+    const d = document.createElement('div'); d.className = 'lbl ' + (cls || ''); labelHost.appendChild(d); labels.set(id, d); return d;
+  }
+  const v3 = new V();
+  function place(id, pos, show, text){
+    const node = labels.get(id); if (!node) return;
+    if (!show){ node.style.display = 'none'; return; }
+    v3.copy(pos).project(camera);
+    if (v3.z > 1){ node.style.display = 'none'; return; }
+    if (text !== undefined && node.textContent !== text) node.textContent = text;
+    node.style.display = 'block';
+    const px = (v3.x * 0.5 + 0.5) * stage.clientWidth, py = (-v3.y * 0.5 + 0.5) * stage.clientHeight;
+    node.style.transform = `translate(${Math.max(4, Math.min(px + 8, stage.clientWidth - node.offsetWidth - 4))}px,${py}px) translateY(-50%)`;
+  }
+
+  /* ---- feixe de partículas (camada) ---- */
+  function makeBeam(parent, W){
+    const N = 450, geo = new THREE.BufferGeometry();
+    const pos = new Float32Array(N * 3), col = new Float32Array(N * 3);
+    const x = new Float32Array(N), z = new Float32Array(N), p = new Float32Array(N), s = new Float32Array(N);
+    for (let i = 0; i < N; i++){
+      x[i] = (Math.random() - 0.5) * (W - 0.4); z[i] = (Math.random() - 0.5) * (W - 0.4);
+      p[i] = Math.random(); s[i] = 0.7 + Math.random() * 0.6;
+    }
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const pts = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.17, vertexColors: true, transparent: true, depthWrite: false }));
+    pts.frustumCulled = false; pts.visible = false; parent.add(pts);
+    return { pts, N, pos, col, x, z, p, s, y0: 0, y1: 0, on: false };
+  }
+  function stepBeam(b, dt){
+    b.pts.visible = b.on;
+    if (!b.on) return;
+    const len = Math.max(Math.abs(b.y1 - b.y0), 0.5), { base, bg } = beamMix;
+    for (let i = 0; i < b.N; i++){
+      if (!reduced) b.p[i] = (b.p[i] + dt * 9 * b.s[i] / len) % 1;
+      const p = b.p[i], k = i * 3, a = p < 0.62 ? 1 : Math.max(0, 1 - (p - 0.62) / 0.38);
+      b.pos[k] = b.x[i]; b.pos[k+1] = b.y0 + (b.y1 - b.y0) * p; b.pos[k+2] = b.z[i];
+      for (let c = 0; c < 3; c++) b.col[k + c] = bg[c] + (base[c] - bg[c]) * a;
+    }
+    b.pts.geometry.attributes.position.needsUpdate = true;
+    b.pts.geometry.attributes.color.needsUpdate = true;
+  }
+
+  /* =======================================================================
+     VISÃO 1 — FÁBRICA
+     ======================================================================= */
+  function makeFactory(){
+    const g = new THREE.Group();
+    const TS = 40;                           // animação acelerada
+    const BELT_Y = 0.9, CELL_HALF = 3.9, PITCH = 2.0;
+    const totes = [], free = [];
+    let dock = 0, processed = 0, spawnedAny = false;
+
+    const floorMat = new THREE.MeshBasicMaterial({ color: 0x8793a8, transparent: true, opacity: 0.35 });
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(72, 36), floorMat);
+    floor.rotation.x = -Math.PI / 2; floor.position.y = -0.02; g.add(floor);
+    const grid = new THREE.GridHelper(72, 36, 0x6b7a96, 0x6b7a96);
+    grid.material.transparent = true; grid.material.opacity = 0.22; g.add(grid);
+
+    // esteira
+    const bc = document.createElement('canvas'); bc.width = 64; bc.height = 16;
+    const bx = bc.getContext('2d'); bx.fillStyle = '#262c3a'; bx.fillRect(0, 0, 64, 16);
+    bx.fillStyle = '#4b566e'; bx.fillRect(0, 0, 6, 16);
+    const beltTex = new THREE.CanvasTexture(bc); beltTex.wrapS = THREE.RepeatWrapping; beltTex.repeat.set(30, 1);
+    beltTex.encoding = THREE.sRGBEncoding;
+    const belt = new THREE.Mesh(new THREE.PlaneGeometry(30, 1.4), new THREE.MeshBasicMaterial({ map: beltTex }));
+    belt.rotation.x = -Math.PI / 2; belt.position.y = BELT_Y; g.add(belt);
+    const steel = std(0x5d6a82, { metalness: 0.4, roughness: 0.5 });
+    box(30, 0.3, 1.7, steel, 0, BELT_Y - 0.18, 0, g);
+    for (let i = -14; i <= 14; i += 4) { box(0.25, 0.8, 0.25, steel, i, 0.4, 0.7, g); box(0.25, 0.8, 0.25, steel, i, 0.4, -0.7, g); }
+
+    // silo de recebimento (x = -13)
+    const siloMat = std(0xcfd6e4, { metalness: 0.3, roughness: 0.45 });
+    const silo = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 4.2, 32), siloMat); silo.position.set(-13, 6.3, 0); g.add(silo);
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(2, 1.5, 32), siloMat); cone.rotation.x = Math.PI; cone.position.set(-13, 3.45, 0); g.add(cone);
+    const spout = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.9, 12), steel); spout.position.set(-13, 2.25, 0); g.add(spout);
+    const grainFill = new THREE.Mesh(new THREE.CylinderGeometry(1.85, 1.85, 0.4, 32), std(0xd9b25c)); grainFill.position.set(-13, 8.3, 0); g.add(grainFill);
+    [[-14.4, -1.4], [-11.6, -1.4], [-14.4, 1.4], [-11.6, 1.4]].forEach(p => box(0.3, 4, 0.3, steel, p[0], 2, p[1], g));
+
+    // célula blindada
+    const concrete = std(0x9aa3b2, { transparent: true, opacity: 0.62, roughness: 0.95, depthWrite: false });
+    const roofMat = std(0x8f99aa, { transparent: true, opacity: 0.5, roughness: 0.95, depthWrite: false });
+    box(8, 4, 0.5, concrete, 0, 2, -3.75, g);
+    const frontWall = box(8, 4, 0.5, concrete, 0, 2, 3.75, g);
+    [-1, 1].forEach(s => {
+      box(0.5, 4, 2.1, concrete, s * 3.75, 2, 1.95, g);
+      box(0.5, 4, 2.1, concrete, s * 3.75, 2, -1.95, g);
+      box(0.5, 1.4, 1.8, concrete, s * 3.75, 3.3, 0, g);
+    });
+    box(8, 0.5, 8, roofMat, 0, 4.25, 0, g);
+    // acelerador de elétrons
+    const accMat = std(0x3a5bd9, { metalness: 0.5, roughness: 0.35 });
+    const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 4.2, 24), accMat); tower.position.set(0, 6.6, 0); g.add(tower);
+    const ring1 = new THREE.Mesh(new THREE.TorusGeometry(0.95, 0.1, 8, 24), std(0xcfd6e4, { metalness: 0.6 })); ring1.rotation.x = Math.PI / 2; ring1.position.set(0, 7.5, 0); g.add(ring1);
+    const ring2 = ring1.clone(); ring2.position.y = 5.8; g.add(ring2);
+    const horn = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 1.0, 1.4, 24, 1, true), std(0xcfd6e4, { metalness: 0.6, side: THREE.DoubleSide })); horn.position.set(0, 3.55, 0); g.add(horn);
+    // leque do feixe + lâmina de varredura
+    const fanGeo = new THREE.BufferGeometry();
+    fanGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array([0, 2.9, 0, 0, BELT_Y + 0.05, -0.75, 0, BELT_Y + 0.05, 0.75]), 3));
+    const fanMat = new THREE.MeshBasicMaterial({ color: 0x4db8ff, transparent: true, opacity: 0.14, side: THREE.DoubleSide, depthWrite: false });
+    const fan = new THREE.Mesh(fanGeo, fanMat); g.add(fan);
+    const bladeGeo = new THREE.BufferGeometry();
+    bladeGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(9), 3));
+    const bladeMat = new THREE.MeshBasicMaterial({ color: 0x7fd0ff, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false });
+    const blade = new THREE.Mesh(bladeGeo, bladeMat); g.add(blade);
+    const spot = new THREE.Mesh(new THREE.CircleGeometry(0.45, 24), new THREE.MeshBasicMaterial({ color: 0x9be0ff, transparent: true, opacity: 0.6, depthWrite: false }));
+    spot.rotation.x = -Math.PI / 2; spot.position.y = BELT_Y + 0.07; g.add(spot);
+    // lâmpada de aviso e placa
+    const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.28, 16, 12), new THREE.MeshBasicMaterial({ color: 0xff3b2f })); lamp.position.set(3.4, 4.8, 3.4); g.add(lamp);
+    const sc = document.createElement('canvas'); sc.width = sc.height = 128; const sx = sc.getContext('2d');
+    sx.fillStyle = '#ffd400'; sx.fillRect(0, 0, 128, 128); sx.fillStyle = '#111'; sx.translate(64, 64);
+    for (let i = 0; i < 3; i++){ sx.rotate(i ? Math.PI * 2 / 3 : -Math.PI / 2 + Math.PI / 6); sx.beginPath(); sx.moveTo(0, 0); sx.arc(0, 0, 46, -Math.PI / 6, Math.PI / 6); sx.closePath(); sx.fill(); }
+    sx.setTransform(1, 0, 0, 1, 0, 0); sx.beginPath(); sx.arc(64, 64, 9, 0, 7); sx.fill();
+    const signTex = new THREE.CanvasTexture(sc); signTex.encoding = THREE.sRGBEncoding;
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.1), new THREE.MeshBasicMaterial({ map: signTex })); sign.position.set(-2.3, 2.6, 4.03); g.add(sign);
+    const sign2 = sign.clone(); sign2.position.set(-2.3, 2.6, -4.03); sign2.rotation.y = Math.PI; g.add(sign2);
+
+    // expedição
+    const roofD = std(0xb9c2d3, { transparent: true, opacity: 0.8 });
+    box(5, 0.3, 4, roofD, 12, 3.2, 0, g);
+    [[9.7, -1.8], [14.3, -1.8], [9.7, 1.8], [14.3, 1.8]].forEach(p => box(0.25, 3.2, 0.25, steel, p[0], 1.6, p[1], g));
+    const dockMat = std(0x3fbf8f);
+    const dockBodies = [], dockGeo = new THREE.BoxGeometry(1.1, 0.7, 1.1), dockBase = std(0x6a7894);
+    for (let i = 0; i < 12; i++){
+      const m = new THREE.Mesh(dockGeo, dockBase);
+      m.position.set(10.8 + (i % 4) * 1.25, 0.35 + Math.floor(i / 8) * 0.72, 3.0 + Math.floor((i % 8) / 4) * 1.25); m.visible = false; g.add(m); dockBodies.push(m);
+    }
+    box(5.5, 0.1, 3.0, std(0x4b566e), 12.4, 0.05, 4.1, g);
+
+    // lotes
+    const toteGeo = new THREE.BoxGeometry(1.1, 0.7, 1.1), grainGeoT = new THREE.BoxGeometry(1.0, 0.08, 1.0), lampGeo = new THREE.SphereGeometry(0.11, 10, 8);
+    const toteMat = std(0x6a7894, { roughness: 0.6 }), grainTopMat = std(0xd9b25c, { roughness: 0.9 });
+    const pickables = [];
+    function spawn(){
+      const t = free.pop() || (() => {
+        const grp = new THREE.Group();
+        const body = new THREE.Mesh(toteGeo, toteMat); grp.add(body); pickables.push(body);
+        const top = new THREE.Mesh(grainGeoT, grainTopMat); top.position.y = 0.35; grp.add(top);
+        const lm = new THREE.MeshBasicMaterial({ color: 0x8a93a6 });
+        const l = new THREE.Mesh(lampGeo, lm); l.position.set(0.45, 0.46, 0.45); grp.add(l);
+        g.add(grp); return { grp, lm, body, x: 0, treated: false, dose: 0 };
+      })();
+      t.x = -13; t.treated = false; t.dose = 0; t.grp.visible = true; t.lm.color.set(0x8a93a6); t.body.userData.tote = t;
+      totes.push(t); return t;
+    }
+
+    let st = { belt: 2, Ds: 100, E: 5, on: true, cut: true };
+    let sweep = 0;
+
+    function setState(state){ st = { belt: state.belt, Ds: state.Ds, E: state.E, on: state.Ds > 0 && state.E > 0, cut: state.cut }; frontWall.visible = !st.cut; sign.visible = !st.cut; }
+    function tick(dt, t){
+      const v = st.belt / 60 * TS;
+      beltTex.offset.x -= v * dt;
+      if (!totes.length || totes[totes.length - 1].x >= -13 + PITCH) spawn();
+      for (let i = totes.length - 1; i >= 0; i--){
+        const o = totes[i]; o.x += v * dt;
+        o.grp.position.set(o.x, BELT_Y + 0.35, 0);
+        o.grp.scale.setScalar(Math.min(1, Math.max(0.05, (o.x + 13) / 0.9 + 0.05)));
+        const inCell = Math.abs(o.x) < CELL_HALF;
+        if (inCell && st.on){ o.dose = st.Ds * (o.x + CELL_HALF) / (2 * CELL_HALF); o.treated = true; }
+        if (st.on && inCell) o.lm.color.setRGB(0.2 + 0.2 * Math.sin(t * 9), 0.6, 1);
+        else if (o.treated && o.x > CELL_HALF) o.lm.color.set(0x3fe08f);
+        else o.lm.color.set(0x8a93a6);
+        if (o.x > 13.2){ totes.splice(i, 1); o.grp.visible = false; free.push(o); processed++; if (o.treated){ dock++; dockBodies[(dock - 1) % 12].visible = true; dockBodies[(dock - 1) % 12].material = dockMat; } }
+      }
+      // feixe
+      const on = st.on;
+      fan.visible = on; blade.visible = on; spot.visible = on; lamp.visible = true;
+      lamp.material.color.setRGB(on ? 1 : 0.35, on ? 0.2 + 0.2 * Math.sin(t * 6) : 0.1, 0.15);
+      sweep = reduced ? 0.4 : t * 3.4;
+      const zc = 0.7 * Math.sin(sweep);
+      const bp = bladeGeo.attributes.position;
+      bp.setXYZ(0, 0, 2.9, 0); bp.setXYZ(1, 0, BELT_Y + 0.06, zc - 0.05); bp.setXYZ(2, 0, BELT_Y + 0.06, zc + 0.05); bp.needsUpdate = true;
+      spot.position.z = zc;
+    }
+    function theme(dark){ floorMat.color.set(dark ? 0x2a3550 : 0x9aa6bd); floorMat.opacity = dark ? 0.45 : 0.4; grid.material.color.set(dark ? 0x8ea6d0 : 0x5b6a88); }
+    function labelsFn(show){
+      place('f-silo', new V(-13, 8.9, 0), true, '1 · Silo de recebimento');
+      place('f-belt', new V(-6.5, 1.4, 1.2), true, '2 · Esteira de lotes');
+      place('f-cell', new V(0, 4.9, -3.4), true, '3 · Célula blindada');
+      place('f-acc', new V(0, 8.9, 0), true, 'Acelerador de elétrons');
+      place('f-dock', new V(12, 3.6, 0), true, '4 · Expedição');
+      const inCell = totes.find(o => Math.abs(o.x) < CELL_HALF && st.on);
+      place('f-tote', inCell ? new V(inCell.x, BELT_Y + 1.3, 0) : new V(0, 0, 0), !!inCell, inCell ? `dose acumulada ≈ ${Fmt.num(inCell.dose, inCell.dose < 10 ? 2 : 1)} Gy (ilustrativo)` : '');
+    }
+    return { group: g, tick, theme, setState, labels: labelsFn, pickables,
+      stats(){ return { processed, dock, TS }; },
+      pick(raycaster){ const h = raycaster.intersectObjects(pickables.filter(m => m.parent.visible), false); return h.length ? h[0].object.userData.tote : null; },
+      labelIds: ['f-silo', 'f-belt', 'f-cell', 'f-acc', 'f-dock', 'f-tote'],
+      labelTexts: {} };
+  }
+
+  /* =======================================================================
+     VISÃO 2 — CAMADA DE GRÃOS
+     ======================================================================= */
+  function makeLayer(){
+    const g = new THREE.Group();
+    const W = 8, PX = 0.5, PY = 0.42, FRAME = W + 0.8;
+    let grains = null, depths = null, builtKey = '';
+    const grainGeo = new THREE.SphereGeometry(0.5, 8, 6), grainMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+    const container = new THREE.Mesh(new THREE.BoxGeometry(W + 0.6, 1, W + 0.6),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.07, side: THREE.BackSide, depthWrite: false })); g.add(container);
+    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(W + 0.6, 1, W + 0.6)), new THREE.LineBasicMaterial({ color: 0x888888 })); g.add(edges);
+    const plate = new THREE.Mesh(new THREE.BoxGeometry(W + 1, 0.3, W + 1), new THREE.MeshLambertMaterial({ color: 0x6b7686 })); plate.position.y = -0.17; g.add(plate);
+    const frames = [];
+    function makeFrame(color, op){
+      const f = new THREE.Group(), bm = new THREE.MeshBasicMaterial({ color, depthTest: false });
+      [[FRAME,0.09,0.09,0,0,FRAME/2],[FRAME,0.09,0.09,0,0,-FRAME/2],[0.09,0.09,FRAME,FRAME/2,0,0],[0.09,0.09,FRAME,-FRAME/2,0,0]].forEach(b => {
+        const m = new THREE.Mesh(new THREE.BoxGeometry(b[0], b[1], b[2]), bm); m.position.set(b[3], b[4], b[5]); m.renderOrder = 10; f.add(m); });
+      const pl = new THREE.Mesh(new THREE.PlaneGeometry(FRAME, FRAME), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: op, depthTest: false, side: THREE.DoubleSide }));
+      pl.rotation.x = -Math.PI / 2; pl.renderOrder = 9; f.add(pl); f.visible = false; g.add(f); return f;
+    }
+    frames.push(makeFrame(0xff4d3d, 0.12), makeFrame(0xff4d3d, 0.12));
+    const probe = makeFrame(0x39c5ff, 0.18);
+    const beams = [makeBeam(g, W), makeBeam(g, W)];
+    let st = null;
+
+    function buildGrains(T, cut){
+      if (grains){ g.remove(grains); grains.dispose(); }
+      const n = Math.round(W / PX), ny = Math.max(1, Math.floor(T / PY)), dy = T / ny, rng = mulberry32(7);
+      const list = [];
+      for (let iy = 0; iy < ny; iy++)
+        for (let ix = 0; ix < n; ix++)
+          for (let iz = 0; iz < n; iz++){
+            const x = (ix + 0.5 - n / 2) * PX, z = (iz + 0.5 - n / 2) * PX;
+            if (cut && x > 0 && z > 0) continue;
+            list.push([x + (rng() - 0.5) * 0.1, (iy + 0.5) * dy + (rng() - 0.5) * 0.06, z + (rng() - 0.5) * 0.1, rng(), rng(), rng(), rng()]);
+          }
+      grains = new THREE.InstancedMesh(grainGeo, grainMat, list.length);
+      depths = new Float32Array(list.length);
+      const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), p = new V(), s = new V();
+      list.forEach((gr, i) => {
+        e.set(gr[3] * 6.283, gr[4] * 6.283, gr[5] * 6.283); q.setFromEuler(e);
+        const k = 0.9 + 0.2 * gr[6]; s.set(0.46 * k, 0.26 * k, 0.26 * k);
+        p.set(gr[0], gr[1], gr[2]); m4.compose(p, q, s); grains.setMatrixAt(i, m4);
+        depths[i] = T - gr[1];
+      });
+      grains.instanceMatrix.needsUpdate = true;
+      g.add(grains);
+      const H = T + 1.5;
+      container.scale.y = H; container.position.y = H / 2; edges.scale.y = H; edges.position.y = H / 2;
+    }
+    function recolor(res){
+      const neutral = !(res.uni.max > 0), c = new THREE.Color(), mx = res.uni.max;
+      for (let i = 0; i < depths.length; i++){
+        const rgb = neutral ? Palette.neutral : Palette.rgb(Calc.DepthDose.at(res.prof, depths[i]) / mx);
+        c.setRGB(rgb[0], rgb[1], rgb[2]).convertSRGBToLinear(); grains.setColorAt(i, c);
+      }
+      grains.instanceColor.needsUpdate = true;
+    }
+    function setState(state, res){
+      st = { state, res };
+      const T = state.T, key = T + '|' + state.cut;
+      let rebuilt = false;
+      if (key !== builtKey){ buildGrains(T, state.cut); builtKey = key; rebuilt = true; }
+      recolor(res);
+      const neutral = !(res.uni.max > 0);
+      frames.forEach((f, i) => { const z = res.uni.minZs[i]; f.visible = !neutral && z !== undefined; if (f.visible) f.position.y = T - z; });
+      probe.visible = true; probe.position.y = T - Math.min(Math.max(state.probe, 0), T);
+      const beamOn = state.Ds > 0 && state.E > 0, R = res.R;
+      beams[0].on = beamOn; beams[0].y0 = T + 6; beams[0].y1 = R >= T ? -3 : T - R;
+      beams[1].on = beamOn && state.sides === 2; beams[1].y0 = -6; beams[1].y1 = R >= T ? T + 3 : R;
+      return rebuilt;
+    }
+    function tick(dt){ beams.forEach(b => stepBeam(b, dt)); }
+    function theme(dark){
+      edges.material.color.setRGB(...hexToLin(cssVar('--scene-edge') || '#888888'));
+      beams.forEach(b => { b.pts.material.blending = dark ? THREE.AdditiveBlending : THREE.NormalBlending; b.pts.material.needsUpdate = true; });
+    }
+    function labelsFn(){
+      if (!st) return;
+      const { state, res } = st, T = state.T, f0 = frames[0], neutral = !(res.uni.max > 0);
+      place('l-min', new V(FRAME / 2, f0.position.y, FRAME / 2), f0.visible, `Dmin ${Fmt.gy(res.uni.min)} · prof. ${Fmt.num(res.uni.minZs[0] ?? 0, 2)} cm`);
+      place('l-probe', new V(-FRAME / 2, probe.position.y, FRAME / 2), !neutral || true, `sonda · ${Fmt.num(state.probe, 2)} cm · ${Fmt.gy(Calc.DepthDose.at(res.prof, state.probe))}`);
+      place('l-top', new V(0, T + 6.2, 0), beams[0].on, 'feixe e⁻');
+      place('l-bot', new V(0, -6.2, 0), beams[1].on, 'feixe e⁻');
+    }
+    return { group: g, setState, tick, theme, labels: labelsFn, labelIds: ['l-min', 'l-probe', 'l-top', 'l-bot'] };
+  }
+
+  /* =======================================================================
+     VISÃO 3 — MICROSCÓPICA (ilustração conceitual)
+     ======================================================================= */
+  function makeMicro(){
+    const g = new THREE.Group();
+    const A = 3.2, B = 1.6, C = 1.4, DISH_Y = -1.74;
+    const rng = mulberry32(2024);
+    const clip = new THREE.Plane(new V(0, 0, -1), 0);
+    let lastCut = null;
+
+    // grão de trigo (estilizado)
+    const geo = new THREE.SphereGeometry(1, 64, 40), pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i++){
+      let x = pos.getX(i) * A, y = pos.getY(i) * B, z = pos.getZ(i) * C;
+      const tx = x / A, s = 1 - 0.08 * Math.max(tx, 0);
+      y *= s; z *= s;
+      if (z > 0){ const gg = Math.exp(-Math.pow(y / 0.3, 2)); z -= 0.38 * gg * (z / C); }
+      pos.setXYZ(i, x, y, z);
+    }
+    geo.computeVertexNormals();
+    const grainMat = std(0xb98532, { roughness: 0.8, clippingPlanes: [] });
+    const grain = new THREE.Mesh(geo, grainMat); g.add(grain);
+    const germ = new THREE.Mesh(new THREE.SphereGeometry(0.5, 20, 14), std(0xd2a850, { roughness: 0.8, clippingPlanes: [] }));
+    germ.scale.set(0.9, 0.7, 0.8); germ.position.set(-A + 0.55, -0.35, -0.2); g.add(germ);
+
+    // corte longitudinal (textura)
+    const cc = document.createElement('canvas'); cc.width = cc.height = 512; const cx = cc.getContext('2d');
+    cx.fillStyle = '#b98a3c'; cx.beginPath(); cx.arc(256, 256, 256, 0, 7); cx.fill();
+    const grd = cx.createRadialGradient(256, 256, 20, 256, 256, 235); grd.addColorStop(0, '#fbf3dc'); grd.addColorStop(1, '#efdcae');
+    cx.fillStyle = grd; cx.beginPath(); cx.arc(256, 256, 236, 0, 7); cx.fill();
+    cx.fillStyle = '#e1b94f'; cx.beginPath(); cx.ellipse(70, 300, 40, 55, -0.3, 0, 7); cx.fill();       // gérmen
+    cx.fillStyle = '#5a3b1a'; cx.beginPath(); cx.ellipse(334, 256, 80, 34, 0, 0, 7); cx.fill();          // galeria da larva
+    cx.fillStyle = '#7a5a30'; for (let i = 0; i < 80; i++){ cx.fillRect(270 + Math.random() * 130, 235 + Math.random() * 42, 3, 3); }
+    const capTex = new THREE.CanvasTexture(cc); capTex.encoding = THREE.sRGBEncoding;
+    const cap = new THREE.Mesh(new THREE.CircleGeometry(1, 64), new THREE.MeshStandardMaterial({ map: capTex, roughness: 0.9 }));
+    cap.scale.set(A * 0.985, B * 0.985, 1); cap.position.z = 0.002; g.add(cap);
+
+    // lâmina (prato)
+    const dish = new THREE.Mesh(new THREE.CylinderGeometry(7.5, 7.5, 0.14, 64),
+      new THREE.MeshStandardMaterial({ color: 0xbfd2ee, transparent: true, opacity: 0.35, roughness: 0.2, metalness: 0.1 }));
+    dish.position.y = DISH_Y - 0.07; g.add(dish);
+
+    function surf(avoidCrease = true){
+      for (;;){
+        const u = rng() * 2 - 1, th = rng() * Math.PI * 2, r = Math.sqrt(1 - u * u);
+        let x = r * Math.cos(th) * A, y = u * B, z = r * Math.sin(th) * C;
+        const s = 1 - 0.08 * Math.max(x / A, 0); y *= s; z *= s;
+        if (avoidCrease && z > 0 && Math.abs(y) < 0.45) continue;
+        const p = new V(x, y, z), n = new V(x / (A * A), y / (B * B), z / (C * C)).normalize();
+        return { p, n };
+      }
+    }
+    function basis(n){
+      const up = Math.abs(n.y) > 0.9 ? new V(1, 0, 0) : new V(0, 1, 0);
+      const t = new V().crossVectors(up, n).normalize(), b = new V().crossVectors(t, n);
+      return new THREE.Matrix4().makeBasis(t, n, b);
+    }
+    const orgs = [];
+    const lerpCol = (mat, base, dead, k) => mat.color.copy(dead).lerp(base, k);
+    const DEAD = new THREE.Color(0x7d828c), tmpC = new THREE.Color();
+    function add(o){ o.vital = 1; o.alive = true; o.idx = orgs.filter(x => x.group === o.group).length; orgs.push(o); g.add(o.obj); return o; }
+    const sphere = new THREE.SphereGeometry(1, 14, 10);
+    function paint(o, k){ o.parts.forEach(pt => pt.mat.color.copy(DEAD).lerp(pt.base, k)); }
+
+    // ovos (aglomerados)
+    for (let c = 0; c < 7; c++){
+      const s0 = surf();
+      for (let e = 0; e < 6; e++){
+        const d = new V((rng() - 0.5) * 0.3, (rng() - 0.5) * 0.3, (rng() - 0.5) * 0.3);
+        const p = s0.p.clone().add(d), n = s0.n.clone();
+        const m = new THREE.Mesh(sphere, std(0xf1e2cf, { roughness: 0.4, emissive: 0x5a3a2a, emissiveIntensity: 0.25 }));
+        const sc = 0.09 + rng() * 0.03; m.scale.set(sc * 1.2, sc * 0.9, sc);
+        m.position.copy(p).addScaledVector(n, 0.04);
+        const o = { group: 'ovos', obj: m, u: rng(), front: m.position.z > 0.05, ph: rng() * 6, sc, parts: [{ mat: m.material, base: new THREE.Color(0xf1e2cf) }], p: m.position.clone() };
+        o.tick = (t, v) => { const k = 1 + 0.06 * Math.sin(t * 3 + o.ph) * v; m.scale.set(sc * 1.2 * k, sc * (0.55 + 0.35 * v) * k, sc * k); m.material.emissiveIntensity = 0.25 * v; };
+        add(o);
+      }
+    }
+    // larvas na superfície
+    for (let i = 0; i < 6; i++){
+      const s0 = surf(), grp = new THREE.Group(), segs = [];
+      for (let k = 0; k < 7; k++){
+        const m = new THREE.Mesh(sphere, std(k === 0 ? 0x8a5a2b : 0xe3c77f, { roughness: 0.5 }));
+        const r = k === 0 ? 0.1 : 0.115 - k * 0.006; m.scale.setScalar(r); grp.add(m); segs.push({ m, r, base: new THREE.Color(k === 0 ? 0x8a5a2b : 0xe3c77f) });
+      }
+      grp.position.copy(s0.p).addScaledVector(s0.n, 0.05); grp.quaternion.setFromRotationMatrix(basis(s0.n));
+      const o = { group: 'larvas', obj: grp, u: rng(), front: grp.position.z > 0.05, ph: rng() * 6, parts: segs.map(s => ({ mat: s.m.material, base: s.base })) };
+      o.tick = (t, v) => segs.forEach((s, k) => {
+        const wig = 0.07 * Math.sin(t * 6 - k * 0.9 + o.ph) * v, curl = 0.09 * Math.sin(k * 0.95 + o.ph);
+        s.m.position.set(k * 0.17 - 0.5, 0.06 * v + 0.03 + Math.abs(wig) * 0.5, curl * (1 - v) + wig);
+      });
+      add(o);
+    }
+    // larva dentro do grão (visível no corte)
+    {
+      const grp = new THREE.Group(), segs = [];
+      for (let k = 0; k < 8; k++){
+        const m = new THREE.Mesh(sphere, std(k === 0 ? 0x8a5a2b : 0xf0d98f, { roughness: 0.5 })); m.scale.setScalar(k === 0 ? 0.12 : 0.15 - k * 0.006);
+        grp.add(m); segs.push({ m, base: new THREE.Color(k === 0 ? 0x8a5a2b : 0xf0d98f) });
+      }
+      grp.position.set(A * (2 * 0.66 - 1) - 0.25, 0, 0.12);
+      const o = { group: 'larvas', obj: grp, u: 0.5, inside: true, ph: 1, parts: segs.map(s => ({ mat: s.m.material, base: s.base })) };
+      o.tick = (t, v) => segs.forEach((s, k) => s.m.position.set(k * 0.2 - 0.7, 0.04 * Math.sin(t * 3 - k * 0.8) * v, 0.05 * Math.sin(t * 5 + k) * v));
+      add(o);
+    }
+    // adultos (mariposas)
+    for (let i = 0; i < 4; i++){
+      const grp = new THREE.Group(), body = new THREE.Mesh(sphere, std(0xb79a6b, { roughness: 0.6 })); body.scale.set(0.3, 0.12, 0.12); grp.add(body);
+      const head = new THREE.Mesh(sphere, std(0x9a7d52)); head.scale.setScalar(0.09); head.position.x = 0.3; grp.add(head);
+      const wingMat = new THREE.MeshStandardMaterial({ color: 0xe9d6a8, side: THREE.DoubleSide, transparent: true, opacity: 0.9, roughness: 0.6 });
+      const wl = new THREE.Group(), wr = new THREE.Group();
+      const wgeo = new THREE.PlaneGeometry(0.5, 0.26); wgeo.translate(0.0, 0, 0.13);
+      const wm1 = new THREE.Mesh(wgeo, wingMat); wm1.rotation.x = -Math.PI / 2; wl.add(wm1); const wm2 = new THREE.Mesh(wgeo, wingMat); wm2.rotation.x = -Math.PI / 2; wm2.position.z = 0; wr.add(wm2);
+      wr.scale.z = -1; grp.add(wl, wr);
+      const ang0 = i / 4 * Math.PI * 2 + rng(), rad = 4.2 + rng() * 1.2, hy = 0.4 + rng() * 2.0;
+      const rest = new V(Math.cos(ang0) * (rad - 0.4), DISH_Y + 0.08, Math.sin(ang0) * (rad - 0.4));
+      const o = { group: 'adultos', obj: grp, u: rng(), ph: rng() * 6, parts: [{ mat: body.material, base: new THREE.Color(0xb79a6b) }, { mat: wingMat, base: new THREE.Color(0xe9d6a8) }, { mat: head.material, base: new THREE.Color(0x9a7d52) }] };
+      o.front = false;
+      o.tick = (t, v) => {
+        const a = ang0 + t * 0.35 * v + (1 - v) * 0, hover = new V(Math.cos(a) * rad, hy + 0.25 * Math.sin(t * 2 + o.ph), Math.sin(a) * rad);
+        grp.position.copy(rest).lerp(hover, v);
+        grp.rotation.set(0, -a + Math.PI / 2 * 0 - Math.PI / 2, (1 - v) * 1.35);
+        const flap = (0.15 + 0.85 * Math.abs(Math.sin(t * 28 + o.ph))) * 0.9 * v;
+        wl.rotation.x = flap; wr.rotation.x = -flap;
+        wl.rotation.z = wr.rotation.z = 0;
+      };
+      add(o);
+    }
+    // fungos (hifas)
+    for (let i = 0; i < 8; i++){
+      const s0 = surf(), grp = new THREE.Group(), mats = [], spores = [];
+      const hm = std(0x9b6cff, { roughness: 0.5 }), sm = std(0xc8f08f, { roughness: 0.4 });
+      for (let b = 0; b < 4; b++){
+        const dir = new V((rng() - 0.5) * 0.9, 1, (rng() - 0.5) * 0.9).normalize();
+        const pts = [new V(0, 0, 0)]; let cur = new V(0, 0, 0);
+        for (let k = 1; k <= 4; k++){ cur = cur.clone().addScaledVector(dir, 0.16).add(new V((rng() - 0.5) * 0.1, 0, (rng() - 0.5) * 0.1)); pts.push(cur); }
+        const tube = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 16, 0.018, 6), hm); grp.add(tube);
+        const sp = new THREE.Mesh(sphere, sm); sp.scale.setScalar(0.05); sp.position.copy(pts[pts.length - 1]); grp.add(sp); spores.push(sp);
+      }
+      grp.position.copy(s0.p).addScaledVector(s0.n, -0.02); grp.quaternion.setFromRotationMatrix(basis(s0.n));
+      const o = { group: 'fungos', obj: grp, u: rng(), front: grp.position.z > 0.05, ph: rng() * 6, parts: [{ mat: hm, base: new THREE.Color(0x9b6cff) }, { mat: sm, base: new THREE.Color(0xc8f08f) }] };
+      o.tick = (t, v) => { grp.scale.set(0.5 + 0.5 * v, 0.35 + 0.65 * v, 0.5 + 0.5 * v); grp.rotation.z = 0; };
+      add(o);
+    }
+    // bactérias (colônias)
+    for (let c = 0; c < 12; c++){
+      const s0 = surf();
+      for (let e = 0; e < 9; e++){
+        const d = new V((rng() - 0.5) * 0.5, (rng() - 0.5) * 0.5, (rng() - 0.5) * 0.5);
+        const p = s0.p.clone().add(d), n = s0.n.clone();
+        const m = new THREE.Mesh(sphere, std(0x3fd0c0, { roughness: 0.4, emissive: 0x0a4a44, emissiveIntensity: 0.4 }));
+        m.scale.set(0.11, 0.045, 0.045); m.position.copy(p).addScaledVector(n, 0.04); m.quaternion.setFromEuler(new THREE.Euler(rng() * 3, rng() * 3, rng() * 3));
+        const base = m.position.clone();
+        const o = { group: 'bacterias', obj: m, u: rng(), front: m.position.z > 0.05, ph: rng() * 6, parts: [{ mat: m.material, base: new THREE.Color(0x3fd0c0) }] };
+        o.tick = (t, v) => { m.position.set(base.x + 0.03 * v * Math.sin(t * 3 + o.ph), base.y + 0.03 * v * Math.cos(t * 2.4 + o.ph), base.z + 0.03 * v * Math.sin(t * 2 + o.ph * 2)); m.material.emissiveIntensity = 0.4 * v; };
+        add(o);
+      }
+    }
+    const byGroup = {}; orgs.forEach(o => (byGroup[o.group] = byGroup[o.group] || []).push(o));
+    Object.values(byGroup).forEach(a => a.forEach((o, i) => { o.idx = i; }));
+
+    // trilhas de elétrons e centelhas
+    const NT = 60, trackGeo = new THREE.BufferGeometry(), tpos = new Float32Array(NT * 6), tcol = new Float32Array(NT * 6);
+    trackGeo.setAttribute('position', new THREE.BufferAttribute(tpos, 3)); trackGeo.setAttribute('color', new THREE.BufferAttribute(tcol, 3));
+    const tracks = new THREE.LineSegments(trackGeo, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false }));
+    tracks.frustumCulled = false; tracks.visible = false; g.add(tracks);
+    const tr = Array.from({ length: NT }, () => ({ x: 0, z: 0, y: 99, s: 0 }));
+    function respawn(t, first){ t.x = (rng() - 0.5) * 9; t.z = (rng() - 0.5) * 6; t.y = first ? 7 - rng() * 16 : 7 + rng() * 3; t.s = 18 + rng() * 10; }
+    tr.forEach(t => respawn(t, true));
+    const rings = Array.from({ length: 18 }, () => {
+      const m = new THREE.Mesh(new THREE.RingGeometry(0.1, 0.14, 28), new THREE.MeshBasicMaterial({ color: 0xffb347, transparent: true, depthTest: false, side: THREE.DoubleSide, opacity: 0 }));
+      m.visible = false; m.renderOrder = 20; g.add(m); return { m, t: -1 };
+    });
+    function burst(p){ const r = rings.find(x => x.t < 0); if (!r) return; r.t = 0; r.m.position.copy(p); r.m.visible = true; }
+
+    let st = null, irradiating = false;
+    const vecW = new V();
+    function setState(state, res){ st = { state, res }; }
+    function setIrradiating(b){ irradiating = b; }
+    function stats(){
+      const out = {};
+      Object.keys(byGroup).forEach(k => { const vis = byGroup[k].filter(o => o.obj.visible); out[k] = { total: vis.length, alive: vis.filter(o => o.alive).length }; });
+      return out;
+    }
+    function tick(dt, t){
+      if (!st) return;
+      const { state } = st, m = state.micro, cut = state.cutM;
+      if (cut !== lastCut){
+        lastCut = cut;
+        [grainMat, germ.material].forEach(mm => { mm.clippingPlanes = cut ? [clip] : []; mm.needsUpdate = true; });
+        cap.visible = cut;
+      }
+      const cfg = { model: m.model, d50: m.d50, k: m.k };
+      const pd = {}; DEMO.groups.forEach(gr => { pd[gr.id] = Calc.DoseResponse.pDead(gr.id, m.dose, cfg); });
+      orgs.forEach(o => {
+        const grpOn = m.groups[o.group], count = byGroup[o.group].length - (o.group === 'larvas' ? 1 : 0);
+        const within = o.inside ? true : o.idx < Math.ceil(count * state.infest / 100);
+        let vis = grpOn && within && state.infest > 0;
+        if (o.inside) vis = grpOn && cut && state.infest > 0;
+        else if (o.front && cut) vis = false;
+        o.obj.visible = vis;
+        const r = pd[o.group], p = r.status === 'ok' ? r.p : 0;
+        const aliveNow = !(r.status === 'ok' && o.u < p);
+        if (o.alive && !aliveNow && vis){ o.obj.getWorldPosition(vecW); burst(vecW.clone()); }
+        o.alive = aliveNow;
+        o.vital += ((aliveNow ? 1 : 0) - o.vital) * Math.min(1, dt * 5);
+        if (!vis) return;
+        o.tick(t, o.vital); paint(o, o.vital);
+      });
+      // trilhas
+      tracks.visible = irradiating;
+      if (irradiating){
+        const { base, bg } = beamMix;
+        tr.forEach((q, i) => {
+          q.y -= q.s * dt; if (q.y < -4) respawn(q, false);
+          const L = 1.3, k = i * 6;
+          tpos[k] = q.x; tpos[k+1] = q.y; tpos[k+2] = q.z; tpos[k+3] = q.x; tpos[k+4] = q.y + L; tpos[k+5] = q.z;
+          for (let c = 0; c < 3; c++){ tcol[k + c] = base[c]; tcol[k + 3 + c] = bg[c]; }
+        });
+        trackGeo.attributes.position.needsUpdate = true; trackGeo.attributes.color.needsUpdate = true;
+      }
+      rings.forEach(r => {
+        if (r.t < 0) return; r.t += dt;
+        const k = r.t / 0.6; if (k >= 1){ r.t = -1; r.m.visible = false; return; }
+        r.m.scale.setScalar(0.6 + k * 6); r.m.material.opacity = 1 - k; r.m.lookAt(camera.position);
+      });
+    }
+    function theme(dark){
+      tracks.material.blending = dark ? THREE.AdditiveBlending : THREE.NormalBlending; tracks.material.needsUpdate = true;
+      dish.material.color.set(dark ? 0x6f8fc7 : 0xbfd2ee);
+    }
+    function labelsFn(){
+      if (!st) return;
+      DEMO.groups.forEach(gr => {
+        const o = byGroup[gr.id].find(x => x.obj.visible && !x.inside) || byGroup[gr.id].find(x => x.obj.visible);
+        if (o){ o.obj.getWorldPosition(vecW); vecW.y += 0.25; }
+        place('m-' + gr.id, vecW, !!o, gr.label);
+      });
+    }
+    return { group: g, setState, tick, theme, labels: labelsFn, setIrradiating, stats, labelIds: DEMO.groups.map(x => 'm-' + x.id) };
+  }
+
+  /* ---- núcleo ---- */
+  function init(cv, st){
+    canvas = cv; stage = st; labelHost = document.getElementById('labels');
+    try { renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true }); }
+    catch (e){ document.getElementById('nogl').style.display = 'flex'; return false; }
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.setClearColor(0x000000, 0);
+    renderer.localClippingEnabled = true;
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(40, 1, 0.1, 500);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+    scene.add(new THREE.HemisphereLight(0xdfe9ff, 0x445066, 0.35));
+    const key = new THREE.DirectionalLight(0xffffff, 0.9); key.position.set(6, 14, 9); scene.add(key);
+    const fill = new THREE.DirectionalLight(0xffffff, 0.35); fill.position.set(-8, 3, -6); scene.add(fill);
+
+    views.factory = makeFactory(); views.layer = makeLayer(); views.micro = makeMicro();
+    Object.entries(views).forEach(([k, v]) => { scene.add(v.group); v.group.visible = k === mode; v.labelIds.forEach(id => makeLabel(id, id === 'l-min' ? 'min' : id === 'l-probe' ? 'probe' : '')); });
+
+    bindControls();
+    new ResizeObserver(resize).observe(stage);
+    resize();
+    applyPose(mode, true);
+    ready = true;
+    requestAnimationFrame(loop);
+    return true;
+  }
+
+  function applyPose(m, snap){
+    const p = POSES[m], T = cur ? cur.state.T : 5;
+    goal.theta = p.theta; goal.phi = p.phi;
+    if (m === 'layer'){ goal.radius = 22 + T * 0.9; goal.target.set(0, T / 2, 0); }
+    else { goal.radius = p.radius; goal.target.set(...p.target); }
+    if (snap){ orbit.theta = goal.theta; orbit.phi = goal.phi; orbit.radius = goal.radius; orbit.target.copy(goal.target); }
+  }
+  function setMode(m){
+    if (!views[m] || m === mode) return;
+    mode = m;
+    Object.entries(views).forEach(([k, v]) => { v.group.visible = k === m; });
+    labels.forEach(l => { l.style.display = 'none'; });
+    applyPose(m, true);
+    if (cur) pushState();
+  }
+
+  function resize(){
+    const w = stage.clientWidth, h = stage.clientHeight;
+    if (!w || !h) return;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h; camera.updateProjectionMatrix();
+  }
+
+  const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+  function bindControls(){
+    const ptrs = new Map(); let pinch = 0, down = null;
+    canvas.addEventListener('pointerdown', e => {
+      canvas.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      down = { x: e.clientX, y: e.clientY, t: performance.now(), moved: 0 };
+      if (ptrs.size === 2){ const [a, b] = [...ptrs.values()]; pinch = Math.hypot(a.x - b.x, a.y - b.y); }
+    });
+    canvas.addEventListener('pointermove', e => {
+      const p = ptrs.get(e.pointerId); if (!p) return;
+      const dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY;
+      if (down) down.moved += Math.abs(dx) + Math.abs(dy);
+      if (ptrs.size === 1){
+        goal.theta -= dx * 0.008; goal.phi = Math.min(Math.max(goal.phi - dy * 0.008, 0.12), Math.PI - 0.12);
+      } else if (ptrs.size === 2){
+        const [a, b] = [...ptrs.values()], d = Math.hypot(a.x - b.x, a.y - b.y);
+        if (pinch > 0) zoom(pinch / d); pinch = d;
+      }
+    });
+    canvas.addEventListener('pointerup', e => {
+      if (down && down.moved < 6 && performance.now() - down.t < 500 && mode === 'factory' && ptrs.size === 1){
+        const r = canvas.getBoundingClientRect();
+        ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+        ray.setFromCamera(ndc, camera);
+        if (views.factory.pick(ray) && Scene3D.onPick) Scene3D.onPick('layer');
+      }
+      ptrs.delete(e.pointerId); pinch = 0;
+    });
+    canvas.addEventListener('pointercancel', e => { ptrs.delete(e.pointerId); pinch = 0; });
+    canvas.addEventListener('wheel', e => { e.preventDefault(); zoom(Math.exp(e.deltaY * 0.0012)); }, { passive: false });
+    canvas.addEventListener('keydown', e => {
+      const k = e.key, s = 0.09; let used = true;
+      if (k === 'ArrowLeft') goal.theta -= s; else if (k === 'ArrowRight') goal.theta += s;
+      else if (k === 'ArrowUp') goal.phi = Math.max(goal.phi - s, 0.12);
+      else if (k === 'ArrowDown') goal.phi = Math.min(goal.phi + s, Math.PI - 0.12);
+      else if (k === '+' || k === '=') zoom(0.9); else if (k === '-' || k === '_') zoom(1.1);
+      else if (k === '1' || k === '2' || k === '3'){ if (Scene3D.onMode) Scene3D.onMode(['factory', 'layer', 'micro'][+k - 1]); }
+      else used = false;
+      if (used) e.preventDefault();
+    });
+  }
+  function zoom(f){ const l = POSES[mode].lim; goal.radius = Math.min(Math.max(goal.radius * f, l[0]), l[1]); }
+  function resetCamera(){ applyPose(mode, false); }
+
+  function pushState(){
+    if (!cur) return;
+    const { state, res } = cur;
+    views.factory.setState(state);
+    const rebuilt = views.layer.setState(state, res);
+    if (rebuilt && mode === 'layer' && Math.abs(goal.target.y - state.T / 2) > 1e-6){ goal.target.set(0, state.T / 2, 0); goal.radius = Math.max(goal.radius, 20 + state.T * 0.6); }
+    views.micro.setState(state, res);
+    canvas.setAttribute('aria-label', mode === 'factory' ? 'Visão geral da fábrica de irradiação: silo, esteira, célula blindada com acelerador de elétrons e expedição.'
+      : mode === 'layer' ? `Camada de grãos de ${Fmt.num(state.T, 1)} cm irradiada por feixe de elétrons de ${Fmt.num(state.E, 1)} MeV em ${state.sides} lado(s). ` + (res.uni.max > 0 ? `Dmin ${Fmt.gy(res.uni.min)}, Dmax ${Fmt.gy(res.uni.max)}.` : 'Sem dose: grãos em cor neutra.')
+      : 'Visão microscópica conceitual de um grão de trigo com ovos, larvas, mariposas, fungos e bactérias. Ilustração conceitual.');
+  }
+  function update(state, res){ cur = { state, res }; if (ready) pushState(); }
+
+  function applyTheme(dark){
+    if (!scene) return;
+    beamMix.dark = dark;
+    beamMix.base = dark ? hexToLin('#4db8ff') : hexToLin('#1646ff');
+    beamMix.bg = dark ? [0, 0, 0] : hexToLin('#dbe3f5');
+    Object.values(views).forEach(v => v.theme(dark));
+  }
+
+  let last = performance.now();
+  function loop(now){
+    requestAnimationFrame(loop);
+    if (document.hidden || !stage.clientWidth) return;
+    const dt = Math.min(0.05, (now - last) / 1000); last = now; clock += dt;
+    const k = 1 - Math.exp(-dt * 9);
+    orbit.theta += (goal.theta - orbit.theta) * k; orbit.phi += (goal.phi - orbit.phi) * k;
+    orbit.radius += (goal.radius - orbit.radius) * k; orbit.target.lerp(goal.target, k);
+    const sp = Math.sin(orbit.phi);
+    camera.position.set(orbit.target.x + orbit.radius * sp * Math.sin(orbit.theta), orbit.target.y + orbit.radius * Math.cos(orbit.phi), orbit.target.z + orbit.radius * sp * Math.cos(orbit.theta));
+    camera.lookAt(orbit.target);
+    views[mode].tick(dt, clock);
+    renderer.render(scene, camera);
+    labels.forEach(l => { l.style.display = 'none'; });
+    views[mode].labels();
+  }
+
+  return { init, update, applyTheme, resetCamera, setMode, getMode: () => mode,
+    setIrradiating: b => views.micro && views.micro.setIrradiating(b),
+    microStats: () => views.micro ? views.micro.stats() : {},
+    factoryStats: () => views.factory ? views.factory.stats() : { processed: 0, dock: 0, TS: 40 },
+    onPick: null, onMode: null };
+})();
+
+/* ==========================================================================
+   SEÇÃO 5 — INTERFACE
+   ========================================================================== */
+const UI = (() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const TYPES = {
+    exp:  { cls: 'b-exp',  glyph: '■', text: 'experimental' },
+    calc: { cls: 'b-calc', glyph: 'ƒ', text: 'calculado' },
+    sim:  { cls: 'b-sim',  glyph: '≈', text: 'simulado/ilustrativo' },
+    none: { cls: 'b-none', glyph: '∅', text: 'sem dados' },
+    ok:   { cls: 'b-ok',   glyph: '✓', text: 'verificada' }
+  };
+  const badge = (t, text) => `<span class="badge ${TYPES[t].cls}">${TYPES[t].glyph} ${text || TYPES[t].text}</span>`;
+  const row = (k, sub, v, t, tText) =>
+    `<div class="row"><div class="k">${k}${sub ? `<small>${sub}</small>` : ''}</div><div class="val"><span class="v">${v}</span>${badge(t, tText)}</div></div>`;
+
+  const state = {
+    T: 5, E: 5, Ds: 100, m: 1, sides: 2, cut: true, cutM: false, belt: 2, probe: 0, infest: 70, mode: 'factory',
+    micro: { dose: 0, target: 0, anim: null, model: 'demo', k: DEMO.k,
+      groups: Object.fromEntries(DEMO.groups.map(g => [g.id, true])),
+      d50: Object.fromEntries(DEMO.groups.map(g => [g.id, g.d50])) }
+  };
+  let lastRes = null;
+
+  const CONTROLS = [
+    { key:'T',  host:'#controls', label:'Espessura da camada', unit:'cm',  min:0.5,   max:20,    step:0.5, hint:'0,5 a 20' },
+    { key:'E',  host:'#controls', label:'Energia do feixe',    unit:'MeV', min:0.5,   max:10,    step:0.1, hint:'0,5 a 10' },
+    { key:'Ds', host:'#controls', label:'Dose na superfície',  unit:'Gy',  min:0,     max:20000, step:'any', log:'zero', hint:'0 a 20 000 por lado, escala log' },
+    { key:'m',  host:'#controls', label:'Massa da amostra',    unit:'kg',  min:0.001, max:1000,  step:'any', log:true, hint:'0,001 a 1 000, escala log' },
+    { key:'belt',   host:'#sl-factory', label:'Velocidade da esteira', unit:'m/min', min:0.5, max:10, step:0.5, hint:'0,5 a 10' },
+    { key:'probe',  host:'#sl-probe',   label:'Profundidade da sonda', unit:'cm', min:0, max:5, step:0.05, hint:'a partir da face de entrada' },
+    { key:'infest', host:'#sl-micro',   label:'Infestação (visual)',   unit:'%',  min:0, max:100, step:5, hint:'quantos organismos aparecem' }
+  ];
+  const sig = x => Number(x.toPrecision(3));
+  const toSlider = (c, v) => !c.log ? v
+    : c.log === 'zero' ? (v <= 0 ? 0 : Math.max(0, Math.round(Math.log(v) / Math.log(c.max) * 1000)))
+    : Math.round(Math.log(v / c.min) / Math.log(c.max / c.min) * 1000);
+  const fromSlider = (c, s) => !c.log ? +s
+    : c.log === 'zero' ? (s <= 0 ? 0 : sig(Math.pow(c.max, s / 1000)))
+    : sig(c.min * Math.pow(c.max / c.min, s / 1000));
+  const setP = r => r.style.setProperty('--p', ((r.value - r.min) / (r.max - r.min) * 100) + '%');
+  const ctl = key => CONTROLS.find(c => c.key === key);
+
+  function buildControls(){
+    CONTROLS.forEach(c => {
+      const host = $(c.host);
+      host.insertAdjacentHTML('beforeend', `
+        <div class="ctl">
+          <label for="n-${c.key}">${c.label} <span class="unit">${c.unit} · ${c.hint}</span></label>
+          <div class="pair">
+            <input type="range" id="r-${c.key}" aria-label="${c.label}, controle deslizante"
+              min="${c.log ? 0 : c.min}" max="${c.log ? 1000 : c.max}" step="${c.log ? 1 : c.step}" value="${toSlider(c, state[c.key])}">
+            <input type="number" id="n-${c.key}" inputmode="decimal" min="${c.min}" max="${c.max}" step="${c.step}" value="${state[c.key]}">
+          </div>
+        </div>`);
+      const r = $('#r-' + c.key), n = $('#n-' + c.key);
+      setP(r);
+      r.addEventListener('input', () => { setVal(c, fromSlider(c, r.value), false); });
+      n.addEventListener('input', () => {
+        const v = parseFloat(n.value), max = c.key === 'probe' ? state.T : c.max;
+        if (isFinite(v) && v >= c.min && v <= max) setVal(c, v, true, true); else n.setAttribute('aria-invalid', 'true');
+      });
+      n.addEventListener('change', () => {
+        let v = parseFloat(n.value); if (!isFinite(v)) v = state[c.key];
+        setVal(c, Math.min(Math.max(v, c.min), c.key === 'probe' ? state.T : c.max), true);
+      });
+    });
+    $$('input[name=sides]').forEach(i => i.addEventListener('change', () => { state.sides = +$('input[name=sides]:checked').value; schedule(); }));
+    $('#cut').addEventListener('click', e => {
+      const k = state.mode === 'micro' ? 'cutM' : 'cut';
+      state[k] = !state[k]; e.currentTarget.setAttribute('aria-pressed', state[k]); schedule();
+    });
+    $('#reset').addEventListener('click', () => Scene3D.resetCamera());
+  }
+  function setVal(c, v, syncSlider, fromTyping){
+    state[c.key] = v;
+    const r = $('#r-' + c.key), n = $('#n-' + c.key);
+    if (!fromTyping) n.value = v;
+    n.removeAttribute('aria-invalid');
+    if (syncSlider || c.key === 'probe') r.value = toSlider(c, v);
+    setP(r);
+    if (c.key === 'T') refreshProbe();
+    if (c.key === 'probe' || c.key === 'infest' || c.key === 'T' || c.key === 'Ds' || c.key === 'E') state.micro.manual = false;
+    schedule();
+  }
+  function refreshProbe(){
+    const r = $('#r-probe'), n = $('#n-probe');
+    r.max = state.T; n.max = state.T;
+    if (state.probe > state.T){ state.probe = state.T; r.value = state.T; n.value = state.T; }
+    setP(r);
+  }
+
+  function buildTabs(){
+    const tabs = $$('[role=tab]');
+    const show = t => tabs.forEach(b => {
+      const on = b === t; b.setAttribute('aria-selected', on); b.tabIndex = on ? 0 : -1;
+      document.getElementById(b.getAttribute('aria-controls')).hidden = !on;
+    });
+    tabs.forEach((b, i) => {
+      b.addEventListener('click', () => show(b));
+      b.addEventListener('keydown', e => {
+        const d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0; if (!d) return;
+        const t = tabs[(i + d + tabs.length) % tabs.length]; t.focus(); show(t); e.preventDefault();
+      });
+    });
+    UI.showTab = id => show($('#' + id));
+  }
+
+  /* ---- modos ---- */
+  const STAMPS = {
+    factory: 'visão geral · geometria de demonstração · animação acelerada · clique em um lote',
+    layer: 'camada de grãos · visualização esquemática · não é medição',
+    micro: 'ilustração conceitual · organismos esquemáticos, fora de escala · não é foto'
+  };
+  function setMode(m, instant){
+    if (m === state.mode) return;
+    const fade = $('#fade');
+    const go = () => {
+      state.mode = m; Scene3D.setMode(m);
+      $$('.modes button').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === m));
+      $$('[data-modes]').forEach(s => { s.hidden = !s.dataset.modes.split(' ').includes(m); });
+      $('#stamp').textContent = STAMPS[m];
+      $('#cut').setAttribute('aria-pressed', m === 'micro' ? state.cutM : state.cut);
+      $('#cut').textContent = m === 'micro' ? 'Corte do grão' : 'Corte';
+      renderLegend(lastRes); renderMicro();
+      fade.classList.remove('on');
+    };
+    if (instant || matchMedia('(prefers-reduced-motion: reduce)').matches) return go();
+    fade.classList.add('on'); setTimeout(go, 190);
+  }
+
+  /* ---- gráficos SVG ---- */
+  function depthChart(res, T){
+    const Wd = 340, Hd = 190, l = 46, r = 12, t = 22, b = 34, pw = Wd - l - r, ph = Hd - t - b;
+    const ymax = Math.max(res.uni.max * 1.12, 1e-9);
+    const X = z => l + z / T * pw, Y = d => t + ph - d / ymax * ph;
+    const { z, D } = res.prof;
+    let path = ''; for (let i = 0; i < D.length; i += 2) path += (i ? 'L' : 'M') + X(z[i]).toFixed(1) + ',' + Y(D[i]).toFixed(1);
+    const xt = [0, T / 2, T], yt = [0, ymax / 2, ymax];
+    const mk = (zz, d, cls, label, dy) => `<circle cx="${X(zz)}" cy="${Y(d)}" r="4" class="${cls}"/><text x="${Math.min(Math.max(X(zz), l + 24), Wd - 30)}" y="${Y(d) + dy}" text-anchor="middle" class="${cls}" style="fill:currentColor;stroke:none">${label}</text>`;
+    const px = X(Math.min(state.probe, T));
+    return `<svg class="chart" viewBox="0 0 ${Wd} ${Hd}" role="img" aria-label="Dose em profundidade, ${res.prof.modelLabel}. Dmin ${Fmt.gy(res.uni.min)}, Dmax ${Fmt.gy(res.uni.max)}.">
+      <text x="${l}" y="12" class="ttl">dose × profundidade · ${res.prof.modelLabel}</text>
+      ${yt.map(v => `<line x1="${l}" x2="${Wd - r}" y1="${Y(v)}" y2="${Y(v)}" class="c-grid"/><text x="${l - 4}" y="${Y(v) + 3}" text-anchor="end">${Fmt.num(v, v < 10 ? 1 : 0)}</text>`).join('')}
+      ${xt.map(v => `<text x="${X(v)}" y="${Hd - 18}" text-anchor="middle">${Fmt.num(v, 1)}</text>`).join('')}
+      <path d="${path}" class="c-sim"/>
+      <line x1="${px}" x2="${px}" y1="${t}" y2="${t + ph}" stroke="#39c5ff" stroke-width="1.4" stroke-dasharray="3 2"/>
+      <line x1="${l}" x2="${l}" y1="${t}" y2="${t + ph}" class="c-axis"/><line x1="${l}" x2="${Wd - r}" y1="${t + ph}" y2="${t + ph}" class="c-axis"/>
+      <text x="${l + pw / 2}" y="${Hd - 4}" text-anchor="middle">profundidade (cm) · tracejado azul: sonda</text>
+      <text x="10" y="${t + ph / 2}" text-anchor="middle" transform="rotate(-90 10 ${t + ph / 2})">dose (Gy)</text>
+      ${res.uni.max > 0 ? mk(res.uni.zMax, res.uni.max, 'c-max', 'Dmax', -7) : ''}
+      ${res.uni.max > 0 && res.uni.minZs.length ? mk(res.uni.minZs[0], res.uni.min, 'c-min', 'Dmin', res.uni.min / ymax > 0.5 ? 15 : -7) : ''}
+    </svg>`;
+  }
+
+  function pestChart(res){
+    const Wd = 340, Hd = 200, l = 40, r = 12, t = 22, b = 36, pw = Wd - l - r, ph = Hd - t - b;
+    const pts = DATA.pests.points, X = d => l + d / 150 * pw, Y = p => t + ph - p / 100 * ph;
+    const line = pts.map((p, i) => (i ? 'L' : 'M') + X(p[0]) + ',' + Y(p[1])).join('');
+    const vm = (d, cls, label) => (d >= 0 && d <= 150)
+      ? `<line x1="${X(d)}" x2="${X(d)}" y1="${t}" y2="${t + ph}" class="${cls}" style="stroke-width:1.4"/><text x="${Math.min(Math.max(X(d), l + 16), Wd - 22)}" y="${t - 3}" text-anchor="middle" class="${cls}" style="fill:currentColor;stroke:none">${label}</text>` : '';
+    return `<svg class="chart" viewBox="0 0 ${Wd} ${Hd}" role="img" aria-label="Ovos que não eclodiram versus dose gama, pontos experimentais da Tabela 1 e interpolação linear.">
+      <text x="${l}" y="12" class="ttl">gama · ovos não eclodidos × dose</text>
+      ${[0,25,50,75,100].map(v => `<line x1="${l}" x2="${Wd - r}" y1="${Y(v)}" y2="${Y(v)}" class="c-grid"/><text x="${l - 4}" y="${Y(v) + 3}" text-anchor="end">${v}</text>`).join('')}
+      ${[0,50,100,150].map(v => `<text x="${X(v)}" y="${Hd - 20}" text-anchor="middle">${v}</text>`).join('')}
+      <path d="${line}" class="c-sim"/>
+      ${pts.map(p => `<circle cx="${X(p[0])}" cy="${Y(p[1])}" r="3.6" class="c-dot"/>`).join('')}
+      <line x1="${l}" x2="${l}" y1="${t}" y2="${t + ph}" class="c-axis"/><line x1="${l}" x2="${Wd - r}" y1="${t + ph}" y2="${t + ph}" class="c-axis"/>
+      <text x="${l + pw / 2}" y="${Hd - 6}" text-anchor="middle">dose gama (Gy), sem extrapolar além de 150</text>
+      <text x="9" y="${t + ph / 2}" text-anchor="middle" transform="rotate(-90 9 ${t + ph / 2})">% não eclodidos</text>
+      ${vm(res.uni.min, 'c-min', 'Dmin')}${vm(res.uni.max, 'c-max', 'Dmax')}
+    </svg>
+    <p class="note">${badge('exp', '■ pontos: experimental')} ${badge('sim', '≈ tracejado: interpolação linear')} Não medido para elétrons.</p>`;
+  }
+
+  /* ---- painéis ---- */
+  function renderKpis(res){
+    const u = res.uni, none = !(u.max > 0), t = res.prof.type;
+    $('#kpis').innerHTML =
+      `<div class="kpi min"><div class="l">Dmin</div><div class="n">${Fmt.num(u.min, u.min < 10 ? 2 : 1)}</div><div class="s">Gy · ${u.minZs.length ? 'a ' + Fmt.num(u.minZs[0], 2) + ' cm' : '—'}</div>${badge(t)}</div>
+       <div class="kpi max"><div class="l">Dmax</div><div class="n">${Fmt.num(u.max, u.max < 10 ? 2 : 1)}</div><div class="s">Gy · a ${Fmt.num(u.zMax, 2)} cm</div>${badge(t)}</div>
+       <div class="kpi"><div class="l">DUR</div><div class="n">${u.dur === null ? (none ? '—' : 'indef.') : Fmt.num(u.dur, 2)}</div><div class="s">${u.dur === null ? (none ? 'sem dose' : 'Dmin = 0: indefinida') : 'Dmax / Dmin'}</div>${badge(t)}</div>`;
+  }
+  function renderDose(res, s){
+    const t = res.prof.type, meta = res.prof, imported = meta.modelId !== 'ilustrativa';
+    $('#depth-note').innerHTML = imported
+      ? `<strong>${meta.modelLabel[0].toUpperCase() + meta.modelLabel.slice(1)}.</strong>` + (Math.abs(meta.energyMeV - s.E) > 1e-9 ? ` <strong>Atenção:</strong> os dados valem para ${Fmt.num(meta.energyMeV, 2)} MeV, mas o feixe está em ${Fmt.num(s.E, 2)} MeV.` : '')
+      : `<strong>Curva ilustrativa, não validada.</strong> Só o alcance vem de dado de referência (NIST ESTAR, água); a forma da curva é um modelo. Dá para trocar por dados seus em “Dados e limites”.`;
+    $('#out-dose').innerHTML =
+      row('Energia associada à dose da superfície', `E = D·m = ${Fmt.num(s.Ds, 3)} Gy × ${Fmt.num(s.m, 3)} kg`, Fmt.joule(res.energy.atSurfaceJ), 'calc') +
+      row('Dose média na camada', 'média ao longo da profundidade', Fmt.gy(res.uni.mean), t) +
+      row('Energia com a dose média', 'E = Dmédia·m', Fmt.joule(res.energy.meanJ), t) +
+      row('Alcance CSDA em água', `NIST ESTAR, ${Fmt.num(s.E, 1)} MeV`, `${Fmt.num(res.csda, 3)} g/cm²`, 'ok', 'referência · NIST ESTAR') +
+      row('Alcance na camada de grãos', imported ? 'dado importado' : `alcance CSDA ÷ ρ suposta de ${Fmt.num(DATA.physics.bulkDensity, 2)} g/cm³`, `${Fmt.num(res.R, 2)} cm`, imported ? t : 'sim');
+    let html = '';
+    if (res.uni.max > 0 && res.uni.min <= 0)
+      html += `<div class="alert" role="note">Parte da camada fica além do alcance do feixe (${Fmt.num(res.R, 2)} cm por lado) e recebe dose zero. Aumente a energia, reduza a espessura ou irradie dos dois lados.</div>`;
+    if (!(res.uni.max > 0)) html += `<div class="note">Dose na superfície igual a zero: as cenas mostram o estado neutro.</div>`;
+    $('#out-uni').innerHTML = html;
+    $('#chart-depth').innerHTML = depthChart(res, s.T);
+  }
+  function pestRows(label, dose, r){
+    if (r.status !== 'ok') return row(`${label} = ${Fmt.gy(dose)}`, 'fora de 0 a 150 Gy: sem extrapolação', 'sem dados', 'none');
+    const t = r.measured ? 'exp' : 'sim', tt = r.measured ? 'medido · experimental' : 'interpolado · simulado/ilustrativo';
+    return row(`${label} = ${Fmt.gy(dose)}`, 'ovos que não eclodiram', `${Fmt.num(r.value, 1)} %`, t, tt) +
+      row(`${label}: descontado o controle de 0 Gy`, `subtração simples de ${Fmt.num(Calc.Pests.control, 2)} % (a partir de valor ${r.measured ? 'medido' : 'interpolado'})`,
+        `${Fmt.num(Math.max(r.value - Calc.Pests.control, 0), 1)} p.p.`, 'calc');
+  }
+  function renderPests(res){
+    $('#out-pest').innerHTML = pestRows('Dmin', res.uni.min, res.pests.min) + pestRows('Dmax', res.uni.max, res.pests.max);
+    $('#chart-pest').innerHTML = pestChart(res);
+  }
+
+  function renderBenefits(res){
+    const dT = Calc.Thermal.deltaK(res.uni.max), lots = Calc.Throughput.lotsPerHour(state.belt), kg = Calc.Throughput.kgPerHour(state.belt, state.m);
+    const pw = lots * res.energy.meanJ / 3600;
+    const pm = res.pests.min, pdisp = pm.status === 'ok' ? `${Fmt.num(pm.value, 1)} % de ovos não eclodidos (gama)` : 'sem dados para esta dose';
+    const card = (title, text, liveHtml, tagHtml) =>
+      `<div class="bcard"><h4>${title}</h4><p>${text}</p><div class="live">${liveHtml}${tagHtml}</div></div>`;
+    $('#benefits').innerHTML =
+      card('Controle de pragas sem fumigante químico',
+        'Conceito da literatura: a radiação pode inativar ovos e larvas, inclusive dentro do grão, sem fumigante químico [a verificar nas fontes que escolheremos]. Na visão microscópica dá para ver o efeito crescendo com a dose (resposta de demonstração).',
+        `<span class="v">${pdisp}</span>`, pm.status === 'ok' ? badge(pm.measured ? 'exp' : 'sim', pm.measured ? 'medido' : 'interpolado') : badge('none')) +
+      card('Menos microrganismos',
+        'Estudos com gama mostraram redução de coliformes, fungos e bactérias em doses da ordem de kGy. Veja a aba Evidências; nenhuma curva foi inventada.',
+        `<span class="note" style="margin:0">ver Evidências</span>`, badge('none', '∅ conceito · fonte a verificar')) +
+      card('Tratamento praticamente a frio',
+        `Aquecimento máximo se toda a energia virasse calor: ΔT = D / c, com c = ${Fmt.num(DATA.physics.specificHeat, 0)} J/(kg·K) suposto (a verificar).`,
+        `<span class="v">${Fmt.num(dT, 3)} K em Dmax</span>`, badge('calc', 'calculado · premissa a verificar')) +
+      card('Processo contínuo e rápido',
+        `Esteira a ${Fmt.num(state.belt, 1)} m/min com passo de ${Fmt.num(DEMO.factory.lotPitchM, 1)} m entre lotes (geometria de demonstração).`,
+        `<span class="v">${Fmt.num(lots, 0)} lotes/h · ${Fmt.num(kg, 0)} kg/h</span>`, badge('calc', 'calculado · geometria de demonstração')) +
+      card('Energia realmente absorvida',
+        'Potência média depositada nos lotes: lotes/h × energia por lote ÷ 3600 s.',
+        `<span class="v">${Fmt.num(pw, pw < 10 ? 2 : 0)} W</span>`, badge(res.prof.type, res.prof.type === 'sim' ? 'simulado/ilustrativo' : null)) +
+      card('Sem resíduo químico e grão com a mesma aparência',
+        'Conceito comum na literatura de irradiação de alimentos. O simulador não demonstra isso; é uma hipótese para checar nas fontes que escolheremos.',
+        `<span class="note" style="margin:0">sem número</span>`, badge('none', '∅ conceito · fonte a verificar'));
+  }
+
+  function renderStatic(){
+    const rows = (arr, src) => arr.map(e => `<tr><td class="dose">${e.dose}</td><td>${e.text}</td><td>${e.src || src}<br>${badge('exp')}</td></tr>`).join('');
+    $('#tbl-micro').innerHTML =
+      `<thead><tr><th>Dose</th><th>Efeito reportado</th><th>Fonte</th></tr></thead><tbody>
+       <tr><td colspan="3" class="grp">Microbiologia</td></tr>${rows(DATA.micro, DATA.microSrc)}
+       <tr><td colspan="3" class="grp">Qualidade</td></tr>${rows(DATA.quality)}</tbody>`;
+    $('#refs').innerHTML = DATA.refs.map(r =>
+      `<li>${r.html}<br>${r.ok ? badge('ok', '✓ verificada em parte') : badge('none', '∅ a verificar')} <small>${r.status}</small></li>`).join('');
+    const E = DATA.physics.estar;
+    $('#estar-box').innerHTML =
+      `<p class="note">O alcance vem da tabela CSDA do <a href="${E.url}" rel="noopener" target="_blank">NIST ESTAR</a> para água líquida (consultada em ${E.queried}) ${badge('ok', 'referência · NIST')}. Trigo não consta no ESTAR: usei água como aproximação, e a densidade a granel de ${Fmt.num(DATA.physics.bulkDensity, 2)} g/cm³ é suposição ${badge('sim')}.</p>
+       <details><summary>Ver a tabela embutida (energia em MeV, alcance em g/cm²)</summary>
+       <div class="tbl-wrap"><table><thead><tr><th>MeV</th><th>g/cm²</th></tr></thead><tbody>${E.csda.map(r => `<tr><td class="dose">${Fmt.num(r[0], 2)}</td><td class="dose">${Fmt.num(r[1], 4)}</td></tr>`).join('')}</tbody></table></div></details>`;
+  }
+  function renderLimits(){
+    const P = Calc.Pests, rep = DATA.pests.reported;
+    $('#lim').innerHTML = `
+      <li><strong>Visão microscópica:</strong> ilustração conceitual. Organismos esquemáticos, fora de escala. Os valores de resposta à dose no modo “Demonstração” <strong>não têm base em dados</strong>: servem só para a animação. Ainda vamos escolher e verificar as fontes.</li>
+      <li><strong>Pragas:</strong> os dados escolhidos para o simulador (Abdel Halim et al., 2025) são só de radiação gama e só de ovos de <i>S. cerealella</i> (menos de 24 h); não foram medidos para elétrons. Há estudos de outras espécies e fases, com doses e pontos finais diferentes (por exemplo, emergência de adultos), ainda não escolhidos. Para larvas, adultos, fungos e bactérias não há curva de dose escolhida.</li>
+      <li><strong>Fábrica:</strong> geometria, velocidade e dose por lote são de demonstração; a relação real entre dose e velocidade da esteira depende do equipamento e não está modelada.</li>
+      <li><strong>Dose em profundidade:</strong> a forma da curva é ilustrativa e não validada. Só o alcance usa dado de referência (ESTAR, água). A forma real exige dosimetria ou Monte Carlo; use o importador.</li>
+      <li><strong>Referências:</strong> verificadas só em parte (estado de cada uma abaixo). A fonte do resultado de 360 Gy ainda não foi localizada.</li>
+      <li><strong>Simulador educacional:</strong> não controla equipamentos e não substitui dosimetria nem normas.</li>
+      <li><strong>Divergência de LD:</strong> com os pontos da Tabela 1, a interpolação linear dá LD25 de cerca de ${Fmt.num(P.doseFor(25), 0)} Gy, LD50 de cerca de ${Fmt.num(P.doseFor(50), 0)} Gy e LD90 de cerca de ${Fmt.num(P.doseFor(90), 0)} Gy ${badge('calc')}. O artigo reporta ${Fmt.num(rep.ld25, 2)}, ${Fmt.num(rep.ld50, 2)} e ${Fmt.num(rep.ld90, 2)} Gy (${rep.method}) ${badge('exp')}. A LD25 bate; LD50 e LD90 diferem. Hipótese não verificada: o Probit ajusta uma sigmoide em vez de ligar os pontos. Conferir no texto completo.</li>
+      <li><strong>Valor em 150 Gy:</strong> o resumo cita ${Fmt.num(rep.hatchRed150, 2)} % de redução na eclosão; a Tabela 1 usada aqui traz 99,12 % de ovos não eclodidos. Podem ter bases diferentes. Conferir.</li>`;
+  }
+
+  /* ---- legenda / HUD da cena ---- */
+  function renderLegend(res){
+    if (!res) return;
+    const el = $('#legend'), m = state.mode;
+    if (m === 'factory'){
+      const st = Scene3D.factoryStats(), lots = Calc.Throughput.lotsPerHour(state.belt), kg = Calc.Throughput.kgPerHour(state.belt, state.m);
+      el.innerHTML = `<div class="ttl">Linha de irradiação<small>demonstração · animação ${st.TS}× mais rápida</small></div>
+        <dl><dt>Dose por passagem</dt><dd>${Fmt.gy(state.Ds)}</dd>
+        <dt>Vazão ${badge('calc', 'calc.')}</dt><dd>${Fmt.num(lots, 0)} lotes/h · ${Fmt.num(kg, 0)} kg/h</dd>
+        <dt>Lotes tratados (animação)</dt><dd>${st.dock}</dd></dl>`;
+      return;
+    }
+    if (m === 'micro'){
+      const mm = state.micro;
+      el.innerHTML = `<div class="ttl">Dose acumulada no ponto<small>${mm.model === 'demo' ? 'resposta de demonstração, sem base em dados' : 'Tabela 1: só ovos, gama'}</small></div>
+        <dl><dt>Profundidade</dt><dd>${Fmt.num(state.probe, 2)} cm</dd><dt>Dose agora</dt><dd>${Fmt.gy(mm.dose)}</dd></dl>`;
+      return;
+    }
+    const u = res.uni, none = !(u.max > 0), pos = none ? 0 : Math.min(Math.max(u.min / u.max, 0), 1) * 100;
+    el.innerHTML =
+      `<div class="ttl">Dose em profundidade (Gy)<small>${none ? 'sem dose: estado neutro' : TYPES[res.prof.type].text + ' · ' + res.prof.modelLabel}</small></div>
+       <div class="bar" style="background:${none ? 'rgb(138,143,153)' : Palette.css}">${none ? '' : `<span class="mk" style="left:${pos}%"></span>`}</div>
+       <div class="mkt">${none ? '' : `<span style="left:${Math.min(Math.max(pos, 14), 86)}%">▲ Dmin ${Fmt.num(u.min, 1)}</span>`}</div>
+       <div class="ticks"><span>0</span><span>${Fmt.num(u.max / 2, 1)}</span><span>${Fmt.num(u.max, 1)}</span></div>`;
+  }
+
+  /* ---- microscópio: controles e leituras ---- */
+  function buildMicro(){
+    $('#grp-chips').innerHTML = DEMO.groups.map(g =>
+      `<label class="tog"><input type="checkbox" data-g="${g.id}" checked><span><i class="sw" style="background:${g.color}"></i>${g.name}</span></label>`).join('');
+    $$('#grp-chips input').forEach(i => i.addEventListener('change', () => { state.micro.groups[i.dataset.g] = i.checked; renderMicro(); }));
+    $('#d50-fields').innerHTML = DEMO.groups.map(g =>
+      `<div class="fld"><label for="d50-${g.id}">D50 de demonstração: ${g.name.toLowerCase()} (Gy)</label><input type="number" id="d50-${g.id}" min="1" max="100000" step="any" value="${g.d50}"></div>`).join('');
+    DEMO.groups.forEach(g => $('#d50-' + g.id).addEventListener('input', e => {
+      const v = parseFloat(e.target.value); if (v > 0){ state.micro.d50[g.id] = v; renderMicro(); }
+    }));
+    $('#k-slope').addEventListener('input', e => { const v = parseFloat(e.target.value); if (v >= 1){ state.micro.k = v; renderMicro(); } });
+    $('#resp-model').addEventListener('change', e => { state.micro.model = e.target.value; $('#demo-params').hidden = e.target.value !== 'demo'; renderMicro(); renderLegend(lastRes); });
+    $('#irr').addEventListener('click', () => {
+      const m = state.micro, to = Math.max(m.target, 0);
+      m.dose = 0; m.manual = true; m.anim = { t0: performance.now(), dur: 5500, to };
+      Scene3D.setIrradiating(true); renderMicro();
+    });
+    $('#irr-zero').addEventListener('click', () => { state.micro.anim = null; state.micro.dose = 0; state.micro.manual = true; Scene3D.setIrradiating(false); renderMicro(); renderLegend(lastRes); });
+    $('#pb-surf').addEventListener('click', () => setVal(ctl('probe'), 0, true));
+    $('#pb-min').addEventListener('click', () => lastRes && setVal(ctl('probe'), +(lastRes.uni.minZs[0] ?? 0).toFixed(2), true));
+    $('#pb-max').addEventListener('click', () => lastRes && setVal(ctl('probe'), +lastRes.uni.zMax.toFixed(2), true));
+    $$('[data-goto]').forEach(b => b.addEventListener('click', () => setMode(b.dataset.goto)));
+    $$('.modes button').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+  }
+
+  function renderMicro(){
+    const m = state.micro, cfg = { model: m.model, d50: m.d50, k: m.k };
+    $('#micro-banner').innerHTML = m.model === 'demo'
+      ? '<strong>Resposta de demonstração.</strong> Os valores de dose para inativar cada grupo são de demonstração, sem base em dados. Cada organismo tem um limiar aleatório fixo: a fração inativada vem da curva, e os bichos que “morrem” são os de limiar mais baixo.'
+      : '<strong>Tabela 1 (artigo, gama).</strong> Só os ovos têm dado; os demais grupos ficam em estado neutro (sem efeito) até haver dados escolhidos.';
+    const stats = Scene3D.microStats();
+    $('#micro-out').innerHTML = DEMO.groups.map(g => {
+      const r = Calc.DoseResponse.pDead(g.id, m.dose, cfg), s = stats[g.id] || { total: 0, alive: 0 };
+      const pct = r.status === 'ok' ? r.p * 100 : 0;
+      const tt = r.status !== 'ok' ? 'none' : r.demo ? 'sim' : r.type;
+      const ttxt = r.status !== 'ok' ? null : r.demo ? 'demonstração' : (r.type === 'exp' ? 'medido · experimental' : 'interpolado · simulado/ilustrativo');
+      return `<div class="org-row"><span class="sw" style="background:${g.color}"></span><span><strong>${g.name}</strong> <small style="color:var(--muted)">viáveis na cena: ${s.alive}/${s.total}</small></span>
+        <span class="v">${r.status === 'ok' ? Fmt.num(pct, 0) + ' % inativ.' : 'sem dados'}</span>
+        <span class="bar2"><i style="width:${pct}%"></i></span><span style="grid-column:1/-1">${badge(tt, ttxt)}</span></div>`;
+    }).join('') + '<p class="note">“Viáveis na cena” conta só os organismos desenhados, uma amostra visual, não uma população real.</p>';
+    const pr = lastRes ? Calc.DepthDose.at(lastRes.prof, state.probe) : 0;
+    $('#probe-out').innerHTML = `Dose no ponto da sonda: <strong>${Fmt.gy(pr)}</strong> ${badge(lastRes ? lastRes.prof.type : 'sim')}`;
+  }
+
+  function render(){
+    const res = Calc.run(state); lastRes = res;
+    const m = state.micro, dp = Calc.DepthDose.at(res.prof, state.probe);
+    m.target = dp;
+    if (!m.anim && !m.manual) m.dose = dp;
+    renderKpis(res); renderDose(res, state); renderPests(res); renderBenefits(res); renderLegend(res); renderMicro();
+    Scene3D.update(state, res);
+  }
+  let pending = false;
+  function schedule(){ if (pending) return; pending = true; requestAnimationFrame(() => { pending = false; render(); }); }
+
+  function animLoop(now){
+    const m = state.micro;
+    if (m.anim){
+      const t = Math.min(1, (now - m.anim.t0) / m.anim.dur), e = t * t * (3 - 2 * t);
+      m.dose = m.anim.to * e;
+      if (t >= 1){ m.anim = null; Scene3D.setIrradiating(false); }
+    }
+    requestAnimationFrame(animLoop);
+  }
+  setInterval(() => {
+    if (document.hidden) return;
+    if (state.mode === 'micro'){ renderMicro(); renderLegend(lastRes); }
+    else if (state.mode === 'factory') renderLegend(lastRes);
+  }, 300);
+
+  function bindImport(){
+    const msg = t => { $('#imp-msg').textContent = t; };
+    $('#imp-apply').addEventListener('click', () => {
+      const e = parseFloat($('#imp-e').value);
+      if (!(e >= 0.5 && e <= 10)) return msg('Informe a energia dos dados entre 0,5 e 10 MeV.');
+      const r = Calc.DepthDose.parseTable($('#imp-txt').value, $('#imp-unit').value, DATA.physics.bulkDensity);
+      if (r.error) return msg(r.error);
+      const type = $('#imp-type').value, tl = $('#imp-type').selectedOptions[0].textContent;
+      Calc.DepthDose.register(Calc.DepthDose.tabularModel('usuario', `curva importada (${tl}, ${Fmt.num(e, 2)} MeV)`, type, r.rows, e));
+      Calc.DepthDose.use('usuario');
+      setVal(ctl('E'), e, true);
+      msg(`Curva aplicada com ${r.rows.length} pontos; energia do feixe ajustada para ${Fmt.num(e, 2)} MeV.`);
+    });
+    $('#imp-clear').addEventListener('click', () => { Calc.DepthDose.use('ilustrativa'); msg('Voltou à curva ilustrativa.'); schedule(); });
+  }
+
+  function initTheme(){
+    const root = document.documentElement, btn = $('#theme');
+    let saved = null; try { saved = localStorage.getItem('cherenkov-theme'); } catch (e) {}
+    if (saved) root.setAttribute('data-theme', saved);
+    const isDark = () => root.getAttribute('data-theme') === 'dark' || (!root.getAttribute('data-theme') && matchMedia('(prefers-color-scheme: dark)').matches);
+    const sync = () => { const d = isDark(); btn.setAttribute('aria-pressed', d); btn.textContent = d ? 'Tema claro' : 'Tema escuro'; Scene3D.applyTheme(d); };
+    btn.addEventListener('click', () => {
+      const n = isDark() ? 'light' : 'dark'; root.setAttribute('data-theme', n);
+      try { localStorage.setItem('cherenkov-theme', n); } catch (e) {}
+      sync();
+    });
+    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', sync);
+    sync();
+  }
+
+  function init(){
+    buildControls(); buildTabs(); buildMicro(); renderStatic(); renderLimits(); bindImport();
+    refreshProbe();
+    Scene3D.onPick = m => setMode(m);
+    Scene3D.onMode = m => setMode(m);
+    Scene3D.init($('#gl'), $('#stage'));
+    initTheme();
+    $$('[data-modes]').forEach(s => { s.hidden = !s.dataset.modes.split(' ').includes(state.mode); });
+    $('#stamp').textContent = STAMPS[state.mode];
+    $('#cut').textContent = 'Corte';
+    state.micro.manual = true;     // começa sem dose, para convidar a “Irradiar”
+    render();
+    requestAnimationFrame(animLoop);
+  }
+  return { init };
+})();
+
+document.addEventListener('DOMContentLoaded', UI.init);
+</script>
+</body>
+</html>

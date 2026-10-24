@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Efeito Cherenkov — simulador 3D</title>
+<meta name="description" content="Veja o cone de luz azul de uma partícula mais rápida que a luz no meio, o brilho de um feixe de elétrons na água e a piscina de um reator. Equações e etiquetas de tipo em cada número.">
+<link rel="stylesheet" href="assets/lab.css">
+<style>
+.stagewrap{display:flex;flex-direction:column;gap:.6rem}
+.stage{height:calc(100vh - 10.6rem)}
+.stage.night{background:radial-gradient(110% 85% at 50% -10%,#10204a 0%,#070d22 55%,#03060f 100%)}
+.modes{display:flex;gap:.35rem;padding:.3rem;background:var(--card);border:1px solid var(--line);border-radius:18px;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:var(--shadow)}
+.modes button{flex:1;font:inherit;font-size:.86rem;font-weight:700;color:var(--muted);background:transparent;border:0;border-radius:14px;padding:.55rem .6rem;cursor:pointer;display:flex;gap:.5rem;align-items:center;justify-content:center;line-height:1.15;text-align:left}
+.modes button small{display:block;font-weight:500;font-size:.68rem;opacity:.85}
+.modes .k{font-family:var(--mono);font-size:.72rem;border:1px solid var(--line);border-radius:8px;padding:.05rem .4rem;flex:none}
+.modes button[aria-pressed="true"]{background:linear-gradient(90deg,var(--accent),var(--accent2));color:var(--accent-ink)}
+.modes button[aria-pressed="true"] .k{border-color:currentColor}
+.fade{position:absolute;inset:0;background:var(--bg);opacity:0;pointer-events:none;transition:opacity .18s}
+.fade.on{opacity:.95}
+.chips{display:flex;flex-wrap:wrap;gap:.4rem;margin:.4rem 0}
+.tog{position:relative;display:inline-flex}
+.tog input{position:absolute;opacity:0;inset:0;cursor:pointer;margin:0}
+.tog span{display:inline-flex;font-size:.78rem;font-weight:600;border:1px solid var(--line);background:var(--field);color:var(--muted);padding:.32rem .7rem;border-radius:999px}
+.tog input:checked+span{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.tog:has(input:focus-visible) span{outline:3px solid var(--focus);outline-offset:2px}
+.lbl.night{background:rgba(10,18,40,.8);color:#e7efff;border-color:rgba(160,185,255,.3)}
+.legend-list{margin:0;padding:0;list-style:none;display:grid;gap:.45rem;font-size:.84rem;color:var(--muted)}
+.legend-list li{display:flex;gap:.6rem;align-items:baseline}
+@media (max-width:960px){.stage{height:42vh}.modes button small{display:none}.modes button{font-size:.76rem;padding:.45rem .3rem}}
+</style>
+</head>
+<body>
+<a class="skip" href="#painel">Ir para controles e resultados</a>
+<header class="top">
+  <div class="logo" aria-hidden="true"></div>
+  <h1><span>Efeito Cherenkov</span> · luz azul de uma partícula veloz</h1>
+  <p>Quando uma partícula carregada vai mais rápido que a luz <em>naquele meio</em>, ela deixa um cone de luz, como o estrondo de um avião supersônico.</p>
+  <span class="pill-note">ilustração conceitual · nada aqui é medição</span>
+  <a class="chip" href="index.html">← Todos os simuladores</a>
+  <button id="theme" class="chip" type="button" aria-pressed="false">Tema escuro</button>
+</header>
+
+<main class="layout">
+  <div class="stagewrap">
+    <div class="modes" role="group" aria-label="Escolha da visão">
+      <button type="button" data-mode="part" aria-pressed="true"><span class="k">1</span><span>Partícula e cone<small>o princípio, em câmera lenta</small></span></button>
+      <button type="button" data-mode="beam" aria-pressed="false"><span class="k">2</span><span>Feixe na água<small>o brilho que se vê a olho nu</small></span></button>
+      <button type="button" data-mode="pool" aria-pressed="false"><span class="k">3</span><span>Piscina de reator<small>o brilho azul famoso</small></span></button>
+    </div>
+    <section class="stage" id="stage" aria-label="Cena 3D do efeito Cherenkov">
+      <canvas id="gl" tabindex="0" role="img" aria-label="Cena 3D do efeito Cherenkov"></canvas>
+      <div id="labels"></div>
+      <div class="nogl" id="nogl">WebGL indisponível neste navegador. Os cálculos ao lado continuam funcionando.</div>
+      <div class="ov glass stamp" id="stamp"></div>
+      <div class="ov tools"><button type="button" class="chip" id="reset">Câmera</button><button type="button" class="chip" id="restart" data-modes="part">Reiniciar</button></div>
+      <div class="ov glass legend" id="legend"></div>
+      <div class="ov glass hint">arraste: girar · rolar ou pinça: zoom · teclas 1 2 3</div>
+      <div class="fade" id="fade"></div>
+    </section>
+  </div>
+
+  <div class="panels" id="painel">
+    <section class="card" aria-labelledby="h-par">
+      <h2 id="h-par">Parâmetros</h2>
+      <div class="ctl" data-modes="part"><label for="medium">Meio <span class="unit">índice de refração n</span></label><select id="medium"></select></div>
+      <div class="alert info" data-modes="beam pool">Nestas duas visões o meio é <strong>água</strong>, porque o alcance dos elétrons vem da tabela do NIST ESTAR para água líquida.</div>
+      <div id="sl" data-modes="part beam"></div>
+      <div id="sl-slow" data-modes="part"></div>
+      <div id="sl-pool" data-modes="pool"></div>
+      <h3>Cenários prontos</h3>
+      <div class="btnrow" id="presets"></div>
+      <div data-modes="part"><h3>Mostrar</h3>
+      <div class="chips" role="group" aria-label="Elementos exibidos">
+        <label class="tog"><input type="checkbox" id="t-wave" checked><span>Frentes de onda</span></label>
+        <label class="tog"><input type="checkbox" id="t-cone" checked><span>Cone de luz</span></label>
+        <label class="tog"><input type="checkbox" id="t-ray" checked><span>Raios e ângulo</span></label>
+        <label class="tog"><input type="checkbox" id="t-ring" checked><span>Anel no detector</span></label>
+      </div></div>
+    </section>
+
+    <section class="card" aria-labelledby="h-res">
+      <h2 id="h-res">Resultados</h2>
+      <div class="kpis" id="kpis"></div>
+      <div class="alert info" id="status"></div>
+      <div class="rows" id="rows"></div>
+      <div id="chart"></div>
+    </section>
+
+    <section class="card" aria-labelledby="h-eq">
+      <h2 id="h-eq">Como é calculado</h2>
+      <ul class="lim">
+        <li><strong>Limiar:</strong> há luz Cherenkov se v &gt; c/n, ou seja, β &gt; 1/n. Na água (n = 1,333), T &gt; 0,262 MeV para o elétron.</li>
+        <li><strong>Ângulo:</strong> cos θ = 1/(nβ). O máximo, quando β → 1, é θ = arccos(1/n).</li>
+        <li><strong>Fótons por comprimento</strong> (Frank–Tamm, 400 a 700 nm, n constante): dN/dx = 2πα sin²θ (1/λ₁ − 1/λ₂).</li>
+        <li><strong>Feixe na água:</strong> o brilho dura enquanto T &gt; limiar. Seu comprimento é (R<sub>CSDA</sub>(T₀) − R<sub>CSDA</sub>(T<sub>limiar</sub>)) / ρ, com o alcance CSDA do NIST ESTAR. A intensidade em cada ponto usa a energia que o elétron ainda tem ali.</li>
+        <li><strong>Energia cinética do elétron:</strong> T = (γ − 1) mₑc², com mₑc² = 0,511 MeV.</li>
+      </ul>
+      <h3>Como ler as etiquetas</h3>
+      <ul class="legend-list">
+        <li><span class="badge b-exp">■ experimental</span> tirado de artigo ou experimento.</li>
+        <li><span class="badge b-ok">✓ referência</span> dado de base oficial (NIST), com a data da consulta.</li>
+        <li><span class="badge b-calc">ƒ calculado</span> resultado de uma equação mostrada nesta página.</li>
+        <li><span class="badge b-sim">≈ simulado/ilustrativo</span> vem de um modelo ou da aparência da cena; serve para entender, não para medir.</li>
+        <li><span class="badge b-none">∅ sem dados</span> não há dado escolhido; a cena mostra o estado neutro.</li>
+      </ul>
+      <h3>Limitações</h3>
+      <ul class="lim">
+        <li>Os índices de refração são valores típicos (luz amarela, temperatura ambiente), <strong>a verificar</strong> antes de uso quantitativo.</li>
+        <li>Não há dispersão (n é o mesmo para toda cor), perda de energia contínua na visão 1, espalhamento múltiplo nem refração na saída do meio.</li>
+        <li>Na visão 2, a <strong>largura</strong> do feixe e a <strong>aparência</strong> do brilho são ilustrativas; só o comprimento do brilho e a intensidade relativa vêm de cálculo. Espalhamento múltiplo, que alarga um feixe real, não é modelado. Alcance CSDA é um alcance médio de percurso, não a penetração máxima.</li>
+        <li>Na visão 3, a piscina é um conceito: brilho sem escala, sem espectro e sem relação com uma atividade real. A origem do brilho (elétrons de decaimento β e elétrons Compton dos raios gama dos produtos de fissão) é <strong>conceito, a verificar</strong>.</li>
+        <li>Simulador educacional; não é uma medição.</li>
+      </ul>
+    </section>
+  </div>
+</main>
+<footer>Cherenkov · simulador educacional · parte da coleção de simuladores 3D</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>window.THREE||document.write('<script src="assets/three.min.js"><\/script>')</script>
+<script src="assets/lab.js"></script>
+<script>
+"use strict";
+const $ = Lab.$, $$ = Lab.$$;
+/* ===== 1. DADOS ===== */
+const ME = 0.51099895;          // MeV, massa do elétron em energia
+const ALPHA = 1 / 137.035999;   // constante de estrutura fina
+const MEDIA = [
+  { id:'agua',     nome:'Água',               n:1.333,    color:0x4aa3ff, op:0.10 },
+  { id:'gelo',     nome:'Gelo',               n:1.31,     color:0xa8d8ff, op:0.10 },
+  { id:'acrilico', nome:'Acrílico (PMMA)',    n:1.49,     color:0xbfe6dd, op:0.09 },
+  { id:'vidro',    nome:'Vidro (crown)',      n:1.52,     color:0xb4e2cf, op:0.10 },
+  { id:'aerogel',  nome:'Aerogel de sílica',  n:1.03,     color:0xf2f6ff, op:0.14 },
+  { id:'diamante', nome:'Diamante',           n:2.417,    color:0xe8f4ff, op:0.08 },
+  { id:'ar',       nome:'Ar (nível do mar)',  n:1.000293, color:0xdde8ff, op:0.03 }
+];
+const WATER = MEDIA[0];
+/* NIST ESTAR, água líquida (densidade 1 g/cm³): [T (MeV), alcance CSDA (g/cm²)]. Consultado em 23/10/2026. */
+const CSDA = [[0.25,0.06372],[0.3,0.08421],[0.35,0.1060],[0.4,0.1288],[0.45,0.1523],[0.5,0.1766],[0.55,0.2013],[0.6,0.2265],[0.7,0.2778],
+  [0.8,0.3302],[0.9,0.3832],[1,0.4367],[1.25,0.5717],[1.5,0.7075],[1.75,0.8432],[2,0.9785],[2.5,1.247],[3,1.514],[3.5,1.777],[4,2.037],[4.5,2.295],
+  [5,2.550],[5.5,2.802],[6,3.052],[7,3.545],[8,4.030],[9,4.506],[10,4.975],[12.5,6.117],[15,7.219],[17.5,8.286],[20,9.32],[25,11.30],[30,13.17],
+  [40,16.65],[50,19.83],[60,22.76],[70,25.47],[80,27.99],[100,32.58]];
+const PRESETS = {
+  part: [
+    { nome:'Água, acima do limiar (3 MeV)', m:'agua', T:3 },
+    { nome:'Água, perto do limiar (0,3 MeV)', m:'agua', T:0.3 },
+    { nome:'Água, abaixo do limiar (0,1 MeV)', m:'agua', T:0.1 },
+    { nome:'Vidro (2 MeV)', m:'vidro', T:2 },
+    { nome:'Aerogel (5 MeV)', m:'aerogel', T:5 },
+    { nome:'Ar (5 MeV, abaixo do limiar)', m:'ar', T:5 }
+  ],
+  beam: [
+    { nome:'Elétrons de 10 MeV (limite de energia para alimentos)', T:10 },
+    { nome:'Elétrons de 3 MeV', T:3 },
+    { nome:'Elétrons de 1 MeV', T:1 },
+    { nome:'Elétrons de 40 MeV (atravessa o tanque)', T:40 }
+  ],
+  pool: []
+};
+
+/* ===== 2. CÁLCULOS (independentes do Three.js) ===== */
+const Phys = {
+  gamma: T => 1 + T / ME,
+  beta(T){ const g = this.gamma(T); return Math.sqrt(1 - 1 / (g * g)); },
+  thresholdT(n){ return n > 1 ? ME * (1 / Math.sqrt(1 - 1 / (n * n)) - 1) : Infinity; },
+  angle(n, T){ const nb = n * this.beta(T); return nb > 1 ? Math.acos(1 / nb) : null; },
+  angleMax(n){ return Math.acos(1 / n); },
+  photonsPerCm(theta){
+    if (theta === null) return 0;
+    const l1 = 400e-7, l2 = 700e-7;
+    return 2 * Math.PI * ALPHA * Math.sin(theta) ** 2 * (1 / l1 - 1 / l2);
+  },
+  run(n, T){
+    const beta = this.beta(T), th = this.angle(n, T);
+    return { beta, gamma: this.gamma(T), theta: th, thetaMax: this.angleMax(n), Tth: this.thresholdT(n),
+             vLight: 1 / n, photons: this.photonsPerCm(th), above: th !== null };
+  },
+  /* alcance CSDA (g/cm²) em água: interpolação linear; abaixo de 0,25 MeV escala linear até 0 */
+  csda(T){
+    if (T <= CSDA[0][0]) return CSDA[0][1] * T / CSDA[0][0];
+    for (let i = 1; i < CSDA.length; i++) if (T <= CSDA[i][0]){
+      const [x0, y0] = CSDA[i - 1], [x1, y1] = CSDA[i]; return y0 + (y1 - y0) * (T - x0) / (x1 - x0);
+    }
+    return CSDA[CSDA.length - 1][1];
+  },
+  invCsda(R){
+    if (R <= CSDA[0][1]) return CSDA[0][0] * R / CSDA[0][1];
+    for (let i = 1; i < CSDA.length; i++) if (R <= CSDA[i][1]){
+      const [x0, y0] = CSDA[i - 1], [x1, y1] = CSDA[i]; return x0 + (x1 - x0) * (R - y0) / (y1 - y0);
+    }
+    return CSDA[CSDA.length - 1][0];
+  },
+  /* trilha de um feixe de elétrons na água: brilho enquanto T > limiar (ρ = 1 g/cm³ → g/cm² = cm) */
+  track(T0, n = 64){
+    const Tth = this.thresholdT(WATER.n);
+    if (T0 <= Tth) return { length: 0, slices: [], total: 0, pmax: 0, Tth, R0: this.csda(T0), Rth: this.csda(Tth) };
+    const R0 = this.csda(T0), Rth = this.csda(Tth), L = R0 - Rth, slices = [];
+    let total = 0, pmax = 0;
+    for (let i = 0; i < n; i++){
+      const x = L * (i + 0.5) / n, Ti = this.invCsda(R0 - x);
+      const p = this.photonsPerCm(this.angle(WATER.n, Ti));
+      slices.push({ x, T: Ti, p }); total += p * L / n; pmax = Math.max(pmax, p);
+    }
+    return { length: L, slices, total, pmax, Tth, R0, Rth };
+  }
+};
+
+/* ===== 3. CENA 3D ===== */
+const S = Lab.stage({ theta: 0.5, phi: 1.2, radius: 24, target: [0, 0, 0], minR: 6, maxR: 90 });
+const state = { mode: 'part', medium: MEDIA[0], T: 3, slow: 0.25, glow: 70, wave: true, cone: true, ray: true, ring: true };
+let res = Phys.run(state.medium.n, state.T);
+let trk = Phys.track(state.T);
+const POSES = {
+  part: { theta: 0.5, phi: 1.2, radius: 24, target: [0, 0, 0] },
+  beam: { theta: 0.45, phi: 1.32, radius: 62, target: [16, 0, 0] },
+  pool: { theta: 0.65, phi: 0.95, radius: 34, target: [0, 4, 0] }
+};
+const X0 = -9, X1 = 9, XD = 8;
+let views = null;
+
+if (S){
+  const { THREE, scene } = S, V = THREE.Vector3;
+  const dark = () => S.dark;
+
+  /* sprite de brilho compartilhado */
+  const gc = document.createElement('canvas'); gc.width = gc.height = 128; const gx = gc.getContext('2d');
+  const gg = gx.createRadialGradient(64, 64, 0, 64, 64, 64); gg.addColorStop(0, 'rgba(255,255,255,1)'); gg.addColorStop(0.25, 'rgba(160,210,255,.75)'); gg.addColorStop(1, 'rgba(60,130,255,0)');
+  gx.fillStyle = gg; gx.fillRect(0, 0, 128, 128);
+  const glowTex = new THREE.CanvasTexture(gc);
+  const mkSprite = (parent, color = 0x66b8ff) => {
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+    sp.visible = false; parent.add(sp); return sp;
+  };
+
+  /* ---------- visão 1: partícula e cone ---------- */
+  const part = (() => {
+    const group = new THREE.Group(); scene.add(group);
+    const medMat = new THREE.MeshBasicMaterial({ color: 0x4aa3ff, transparent: true, opacity: 0.1, depthWrite: false, side: THREE.BackSide });
+    group.add(new THREE.Mesh(new THREE.BoxGeometry(X1 - X0 + 2, 8, 8), medMat));
+    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(X1 - X0 + 2, 8, 8)), new THREE.LineBasicMaterial({ color: 0x8ea6d0, transparent: true, opacity: 0.55 })); group.add(edges);
+    const track = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 1, 6), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6 }));
+    track.rotation.z = Math.PI / 2; const trackG = new THREE.Group(); trackG.add(track); group.add(trackG);
+    const electron = new THREE.Mesh(new THREE.SphereGeometry(0.2, 20, 14), new THREE.MeshBasicMaterial({ color: 0xffffff })); group.add(electron);
+    const halo = new THREE.Mesh(new THREE.SphereGeometry(0.45, 20, 14), new THREE.MeshBasicMaterial({ color: 0x7fd0ff, transparent: true, opacity: 0.3, depthWrite: false })); group.add(halo);
+    const coneG = new THREE.Group(), coneMat = new THREE.MeshBasicMaterial({ color: 0x4db8ff, transparent: true, opacity: 0.32, side: THREE.DoubleSide, depthWrite: false });
+    const coneMesh = new THREE.Mesh(new THREE.CylinderGeometry(0, 1, 1, 64, 1, true), coneMat); coneG.add(coneMesh); coneG.rotation.z = -Math.PI / 2; group.add(coneG);
+    const coneWire = new THREE.Mesh(new THREE.CylinderGeometry(0, 1, 1, 24, 1, true), new THREE.MeshBasicMaterial({ color: 0x9be0ff, wireframe: true, transparent: true, opacity: 0.35, depthWrite: false })); coneG.add(coneWire);
+    const WAVES = 44, waves = [], wGeo = new THREE.SphereGeometry(1, 20, 12);
+    for (let i = 0; i < WAVES; i++){
+      const m = new THREE.Mesh(wGeo, new THREE.MeshBasicMaterial({ color: 0x7fd0ff, wireframe: true, transparent: true, opacity: 0.25, depthWrite: false }));
+      m.visible = false; group.add(m); waves.push({ m, born: -1, x: 0 });
+    }
+    const NR = 10, rayGeo = new THREE.BufferGeometry(); rayGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(NR * 6), 3));
+    const rays = new THREE.LineSegments(rayGeo, new THREE.LineBasicMaterial({ color: 0xffe58a, transparent: true, opacity: 0.9 })); rays.frustumCulled = false; group.add(rays);
+    const arcGeo = new THREE.BufferGeometry(); arcGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(26 * 3), 3));
+    const arc = new THREE.Line(arcGeo, new THREE.LineBasicMaterial({ color: 0xffe58a })); arc.frustumCulled = false; group.add(arc);
+    const axisL = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new V(0, 0, 0), new V(5, 0, 0)]), new THREE.LineDashedMaterial({ color: 0xffffff, dashSize: 0.2, gapSize: 0.15, transparent: true, opacity: 0.6 })); axisL.computeLineDistances(); group.add(axisL);
+    const det = new THREE.Mesh(new THREE.CircleGeometry(4, 64), new THREE.MeshBasicMaterial({ color: 0x1d2a4d, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false }));
+    det.rotation.y = Math.PI / 2; det.position.x = XD; group.add(det);
+    const ringPts = []; for (let i = 0; i <= 96; i++) ringPts.push(new V(0, Math.cos(i / 96 * 6.2832), Math.sin(i / 96 * 6.2832)));
+    const ring = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(ringPts), new THREE.LineBasicMaterial({ color: 0x7fd0ff })); ring.position.x = XD - 0.01; group.add(ring);
+    const ringG = new THREE.Mesh(new THREE.RingGeometry(0.97, 1, 96), new THREE.MeshBasicMaterial({ color: 0x7fd0ff, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false }));
+    ringG.rotation.y = Math.PI / 2; ringG.position.x = XD - 0.02; group.add(ringG);
+    S.label('l-e', ''); S.label('l-th', ''); S.label('l-det', '');
+    let xe = X0, t = 0, nextEmit = 0;
+    const EMIT = 0.16, BASE_C = 10;
+
+    function theme(d){
+      const b = d ? THREE.AdditiveBlending : THREE.NormalBlending;
+      coneMat.blending = b; coneMat.color.set(d ? 0x4db8ff : 0x1646ff); coneMat.opacity = d ? 0.32 : 0.22; coneMat.needsUpdate = true;
+      waves.forEach(w => { w.m.material.blending = b; w.m.material.color.set(d ? 0x7fd0ff : 0x1646ff); w.m.material.needsUpdate = true; });
+      ring.material.color.set(d ? 0x7fd0ff : 0x1646ff); ringG.material.color.set(d ? 0x7fd0ff : 0x1646ff);
+      rays.material.color.set(d ? 0xffe58a : 0xb45f00); arc.material.color.set(d ? 0xffe58a : 0xb45f00);
+      det.material.color.set(d ? 0x1d2a4d : 0x8a9bc4); edges.material.color.set(d ? 0x8ea6d0 : 0x4a5a7a);
+      track.material.color.set(d ? 0xffffff : 0x223); electron.material.color.set(d ? 0xffffff : 0x0e1525);
+      medMat.color.set(state.medium.color); medMat.opacity = state.medium.op * (d ? 1 : 1.6);
+    }
+    function restart(){ xe = X0; nextEmit = 0; waves.forEach(w => { w.born = -1; w.m.visible = false; }); }
+    function tick(dt){
+      const sd = dt * state.slow; t += sd;
+      const n = state.medium.n, beta = res.beta, ve = beta * BASE_C, vl = BASE_C / n;
+      xe += ve * sd; if (xe > X1) restart();
+      electron.position.set(xe, 0, 0); halo.position.copy(electron.position); halo.scale.setScalar(1 + 0.15 * Math.sin(t * 40));
+      const trLen = Math.max(0.01, xe - X0); trackG.position.set(X0 + trLen / 2, 0, 0); track.scale.y = trLen;
+      if (xe >= nextEmit){ nextEmit = xe + EMIT * ve; const w = waves.find(q => q.born < 0) || waves.reduce((a, b) => a.born < b.born ? a : b); w.born = t; w.x = xe; }
+      waves.forEach(w => {
+        if (w.born < 0){ w.m.visible = false; return; }
+        const r = vl * (t - w.born);
+        if (r > 14){ w.born = -1; w.m.visible = false; return; }
+        w.m.visible = state.wave; w.m.position.set(w.x, 0, 0); w.m.scale.setScalar(Math.max(r, 0.001)); w.m.material.opacity = 0.28 * (1 - r / 14);
+      });
+      const th = res.theta, show = res.above;
+      coneG.visible = show && state.cone;
+      if (show){
+        const alpha = Math.asin(Math.min(1, 1 / (n * beta))), Lc = Math.min(Math.max(xe - X0, 0.01), 12);
+        coneG.position.set(xe - Lc / 2, 0, 0); coneMesh.scale.set(Lc * Math.tan(alpha), Lc, Lc * Math.tan(alpha)); coneWire.scale.copy(coneMesh.scale);
+        const pa = rayGeo.attributes.position, L = 5;
+        for (let i = 0; i < NR; i++){
+          const ph = i / NR * 6.2832, back = (i % 3) * 1.1, sx = xe - back, dir = new V(Math.cos(th), Math.sin(th) * Math.cos(ph), Math.sin(th) * Math.sin(ph));
+          pa.setXYZ(i * 2, sx, 0, 0); pa.setXYZ(i * 2 + 1, sx + dir.x * L, dir.y * L, dir.z * L);
+        }
+        pa.needsUpdate = true;
+        const aa = arcGeo.attributes.position;
+        for (let i = 0; i <= 25; i++){ const a = th * i / 25; aa.setXYZ(i, xe + 2.4 * Math.cos(a), 2.4 * Math.sin(a), 0); }
+        aa.needsUpdate = true; axisL.position.set(xe, 0, 0);
+        const R = (XD - xe) * Math.tan(th), okRing = state.ring && xe < XD && R < 4.2 && R > 0.05;
+        ring.visible = ringG.visible = okRing;
+        if (okRing){ ring.scale.set(1, R, R); ringG.scale.set(R, R, 1); }
+      } else ring.visible = ringG.visible = false;
+      rays.visible = arc.visible = axisL.visible = show && state.ray;
+    }
+    function labels(){
+      S.place('l-e', electron.position.clone().add(new V(0, 0.9, 0)), true, `e⁻  β = ${Lab.num(res.beta, res.beta > 0.99 ? 5 : 3)}`);
+      S.place('l-th', new V(xe + 2.6, 0.9, 0), res.above && state.ray, `θ = ${Lab.num(res.theta * 180 / Math.PI, 1)}°`);
+      S.place('l-det', new V(XD, 4.2, 0), true, 'detector');
+    }
+    return { group, theme, tick, labels, restart, applyMedium: () => { medMat.color.set(state.medium.color); medMat.opacity = state.medium.op * (S.dark ? 1 : 1.6); }, ids: ['l-e', 'l-th', 'l-det'] };
+  })();
+
+  /* ---------- visão 2: feixe de elétrons na água ---------- */
+  const beam = (() => {
+    const group = new THREE.Group(); scene.add(group);
+    const TL = 40, TW = 14;                                               // tanque: 40 cm x 14 cm x 14 cm (1 unidade = 1 cm)
+    const xc = TL / 2 - 4;
+    const tank = new THREE.Mesh(new THREE.BoxGeometry(TL, TW, TW), new THREE.MeshBasicMaterial({ color: 0x1b5fb0, transparent: true, opacity: 0.16, depthWrite: false, side: THREE.BackSide }));
+    tank.position.x = xc; group.add(tank);
+    const tankEdges = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(TL, TW, TW)), new THREE.LineBasicMaterial({ color: 0x9fb8e8, transparent: true, opacity: 0.7 })); tankEdges.position.x = xc; group.add(tankEdges);
+    const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.6, 6, 24), new THREE.MeshStandardMaterial({ color: 0x8895ad, metalness: 0.6, roughness: 0.4 }));
+    nozzle.rotation.z = Math.PI / 2; nozzle.position.set(-9, 0, 0); group.add(nozzle);
+    const win = new THREE.Mesh(new THREE.CircleGeometry(1.1, 24), new THREE.MeshBasicMaterial({ color: 0x9be0ff, transparent: true, opacity: 0.5 })); win.rotation.y = Math.PI / 2; win.position.set(-4.02, 0, 0); group.add(win);
+    // grade de centímetros no fundo (escala)
+    const grid = new THREE.GridHelper(TL, TL / 2, 0x6b7a96, 0x6b7a96); grid.material.transparent = true; grid.material.opacity = 0.18; grid.position.set(xc, -TW / 2 + 0.01, 0); group.add(grid);
+    const core = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 1, 8), new THREE.MeshBasicMaterial({ color: 0xcfeaff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
+    core.rotation.z = Math.PI / 2; const coreG = new THREE.Group(); coreG.add(core); group.add(coreG);
+    const NS = 64, spr = Array.from({ length: NS }, () => mkSprite(group));
+    // elétrons de passagem (partículas)
+    const NP = 90, pg = new THREE.BufferGeometry(), pp = new Float32Array(NP * 3), pc = new Float32Array(NP * 3);
+    pg.setAttribute('position', new THREE.BufferAttribute(pp, 3)); pg.setAttribute('color', new THREE.BufferAttribute(pc, 3));
+    const pts = new THREE.Points(pg, new THREE.PointsMaterial({ size: 0.28, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })); pts.frustumCulled = false; group.add(pts);
+    const el = Array.from({ length: NP }, () => ({ p: Math.random(), y: (Math.random() - 0.5), z: (Math.random() - 0.5), s: 0.8 + Math.random() * 0.4 }));
+    S.label('l-bg', 'night'); S.label('l-bl', 'night'); S.label('l-bt', 'night');
+    function layout(){
+      const Lv = Math.min(trk.length, TL - 8), n = trk.slices.length;
+      if (state.mode === 'beam'){ S.goal.radius = Math.max(22, 18 + Lv * 1.6); S.goal.target.set(Lv / 2, 0, 0); }
+      coreG.visible = trk.length > 0; coreG.position.set(Lv / 2, 0, 0); core.scale.y = Math.max(Lv, 0.001);
+      spr.forEach((sp, i) => {
+        if (i >= n){ sp.visible = false; return; }
+        const s = trk.slices[i], xv = s.x * (Lv / trk.length);
+        const w = 0.3 + 0.04 * xv;                                            // largura APENAS ilustrativa
+        sp.visible = true; sp.position.set(xv, 0, 0);
+        const rel = trk.pmax ? s.p / trk.pmax : 0;
+        sp.scale.setScalar(w * 2.2 + 0.7); sp.userData.base = (0.25 + 0.75 * rel) * state.glow / 100;
+        sp.material.opacity = Math.min(1, sp.userData.base);
+      });
+    }
+    function tick(dt, t){
+      const Lv = Math.min(trk.length, TL - 8);
+      spr.forEach(sp => { if (sp.visible) sp.material.opacity = Math.min(1, (sp.userData.base || 0) * (0.93 + 0.07 * Math.sin(t * 18 + sp.position.x))); });
+      const has = trk.length > 0;
+      pts.visible = has;
+      if (!has) return;
+      el.forEach((e, i) => {
+        e.p += dt * 20 * e.s / Math.max(Lv, 1); if (e.p > 1) e.p -= 1;
+        const x = e.p * Lv, k = i * 3, f = 1 - e.p * 0.6;
+        pp[k] = x; pp[k + 1] = e.y * (0.3 + 0.05 * x); pp[k + 2] = e.z * (0.3 + 0.05 * x);
+        pc[k] = 0.5 * f; pc[k + 1] = 0.8 * f; pc[k + 2] = 1 * f;
+      });
+      pg.attributes.position.needsUpdate = pg.attributes.color.needsUpdate = true;
+    }
+    function labels(){
+      const Lv = Math.min(trk.length, TL - 8);
+      S.place('l-bg', new V(-1, -2.2, 0), true, 'entrada do feixe');
+      S.place('l-bl', new V(Lv, 1.4, 0), trk.length > 0, trk.length > TL - 8 ? `brilho segue além do tanque (${Lab.num(trk.length, 1)} cm)` : `fim do brilho · ${Lab.num(trk.length, 1)} cm`);
+      S.place('l-bt', new V(0, -TW / 2 + 0.5, TW / 2), true, 'grade de 2 cm no fundo');
+    }
+    return { group, tick, labels, layout, theme(){}, ids: ['l-bg', 'l-bl', 'l-bt'] };
+  })();
+
+  /* ---------- visão 3: piscina de reator ---------- */
+  const pool = (() => {
+    const group = new THREE.Group(); scene.add(group);
+    const PW = 18, PH = 12;
+    const water = new THREE.Mesh(new THREE.BoxGeometry(PW, PH, PW), new THREE.MeshBasicMaterial({ color: 0x0b2f6b, transparent: true, opacity: 0.3, depthWrite: false, side: THREE.BackSide })); water.position.y = PH / 2; group.add(water);
+    const edgeL = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(PW, PH, PW)), new THREE.LineBasicMaterial({ color: 0x7e92b8, transparent: true, opacity: 0.6 })); edgeL.position.y = PH / 2; group.add(edgeL);
+    const floor = new THREE.Mesh(new THREE.BoxGeometry(PW, 0.4, PW), new THREE.MeshStandardMaterial({ color: 0x20293c, roughness: 0.9 })); floor.position.y = -0.2; group.add(floor);
+    const rim = new THREE.Mesh(new THREE.BoxGeometry(PW + 2.4, 1.2, PW + 2.4), new THREE.MeshStandardMaterial({ color: 0x2c3548, roughness: 0.9, transparent: true, opacity: 0.0 })); rim.position.y = PH; group.add(rim);
+    const surf = new THREE.Mesh(new THREE.PlaneGeometry(PW, PW), new THREE.MeshBasicMaterial({ color: 0x1a56a8, transparent: true, opacity: 0.12, depthWrite: false, blending: THREE.AdditiveBlending })); surf.rotation.x = -Math.PI / 2; surf.position.y = PH - 0.05; group.add(surf);
+    const fuelMat = new THREE.MeshStandardMaterial({ color: 0x3a4358, metalness: 0.5, roughness: 0.4 });
+    const assemblies = [];
+    for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++){
+      const m = new THREE.Mesh(new THREE.BoxGeometry(1.8, 4.2, 1.8), fuelMat); m.position.set(i * 4.6, 2.1, j * 4.6); group.add(m);
+      assemblies.push(m);
+    }
+    const sprites = [];
+    assemblies.forEach((a, ai) => {
+      for (let k = 0; k < 14; k++){
+        const sp = mkSprite(group, 0x5ab4ff); sp.visible = true;
+        const r = 1.1 + Math.random() * 2.2, ang = Math.random() * 6.283, hy = 1.0 + Math.random() * 6.5;
+        sp.userData = { bx: a.position.x + Math.cos(ang) * r * 0.6, by: hy, bz: a.position.z + Math.sin(ang) * r * 0.6, sz: 2.4 + Math.random() * 4.2, ph: Math.random() * 6.28, kk: 0.4 + Math.random() * 0.6 };
+        sp.position.set(sp.userData.bx, sp.userData.by, sp.userData.bz); sprites.push(sp);
+      }
+    });
+    S.label('l-pf', 'night'); S.label('l-pg', 'night'); S.label('l-pw', 'night');
+    function tick(dt, t){
+      const g = state.glow / 100;
+      sprites.forEach(sp => {
+        const u = sp.userData, fl = 0.78 + 0.22 * Math.sin(t * 2.2 + u.ph) + 0.06 * Math.sin(t * 9.1 + u.ph * 3);
+        sp.position.set(u.bx + 0.15 * Math.sin(t * 0.7 + u.ph), u.by + 0.2 * Math.sin(t * 0.9 + u.ph * 2), u.bz);
+        sp.scale.setScalar(u.sz * (0.6 + 0.6 * g)); sp.material.opacity = Math.min(1, 0.55 * u.kk * fl * g * 1.25);
+      });
+    }
+    function labels(){
+      S.place('l-pf', new V(0, 4.8, 0), true, 'conjuntos de combustível (esquemático)');
+      S.place('l-pg', new V(-6, 7.2, -6), state.glow > 0, 'brilho azul = luz Cherenkov');
+      S.place('l-pw', new V(PW / 2, PH, PW / 2), true, 'água da piscina');
+    }
+    return { group, tick, labels, theme(){}, ids: ['l-pf', 'l-pg', 'l-pw'] };
+  })();
+
+  views = { part, beam, pool };
+  const night = m => m !== 'part';
+  function setMode(m){
+    state.mode = m;
+    Object.entries(views).forEach(([k, v]) => { v.group.visible = k === m; });
+    const p = POSES[m]; S.goal.theta = p.theta; S.goal.phi = p.phi; S.goal.radius = p.radius; S.goal.target.set(...p.target);
+    S.orbit.theta = p.theta; S.orbit.phi = p.phi; S.orbit.radius = p.radius; S.orbit.target.set(...p.target);
+    $('#stage').classList.toggle('night', night(m));
+    if (m !== 'part'){ state.medium = WATER; }
+    if (m === 'beam') beam.layout();
+    S.hideLabels();
+  }
+  S.setMode = setMode;
+  S.resetCamera = () => { const p = POSES[state.mode]; S.goal.theta = p.theta; S.goal.phi = p.phi; S.goal.radius = p.radius; S.goal.target.set(...p.target); };
+  S.onTick = (dt, t) => views[state.mode].tick(dt, t);
+  S.onLabels = () => views[state.mode].labels();
+  S.applyTheme = d => { S.dark = d; part.theme(d); };
+  S.part = part; S.beam = beam;
+  setMode('part');
+}
+
+/* ===== 4. INTERFACE ===== */
+const deg = a => a * 180 / Math.PI;
+const STAMPS = {
+  part: 'visualização esquemática · tempo em câmera lenta · meio sem dispersão · não é medição',
+  beam: 'ilustração conceitual · comprimento do brilho calculado (ESTAR) · largura e aparência ilustrativas',
+  pool: 'ilustração conceitual · brilho sem escala, sem espectro · não é foto nem medição'
+};
+
+function render(){
+  res = Phys.run(state.medium.n, state.T);
+  trk = Phys.track(state.T);
+  if (S && S.beam) S.beam.layout();
+  const r = res, m = state.mode;
+  if (m === 'part'){
+    $('#kpis').innerHTML =
+      `<div class="kpi"><div class="l">β = v/c</div><div class="n">${Lab.num(r.beta, r.beta > 0.99 ? 5 : 4)}</div><div class="s">elétron</div>${Lab.badge('calc')}</div>
+       <div class="kpi"><div class="l">Ângulo θ</div><div class="n">${r.above ? Lab.num(deg(r.theta), 1) + '°' : '—'}</div><div class="s">${r.above ? 'cos θ = 1/(nβ)' : 'abaixo do limiar'}</div>${Lab.badge('calc')}</div>
+       <div class="kpi"><div class="l">T limiar</div><div class="n">${r.Tth < 1e4 ? Lab.num(r.Tth, r.Tth < 1 ? 3 : 2) : '—'}</div><div class="s">MeV neste meio</div>${Lab.badge('calc')}</div>`;
+    $('#status').innerHTML = r.above
+      ? `<strong>Há luz Cherenkov.</strong> O elétron (β = ${Lab.num(r.beta, 4)}) é mais rápido que a luz no meio (1/n = ${Lab.num(1 / state.medium.n, 4)}).`
+      : `<strong>Sem luz Cherenkov.</strong> A energia está abaixo do limiar de ${Lab.num(r.Tth, 3)} MeV: o elétron é mais lento que a luz neste meio, e as ondas se afastam à sua frente.`;
+    $('#rows').innerHTML =
+      Lab.row('Índice de refração n', `${state.medium.nome} (valor típico)`, Lab.num(state.medium.n, 4), 'ref', 'referência · a verificar') +
+      Lab.row('Velocidade da luz no meio', 'c/n', `${Lab.num(100 / state.medium.n, 2)} % de c`, 'calc') +
+      Lab.row('Fator de Lorentz γ', 'γ = 1 + T/mₑc²', Lab.num(r.gamma, 3), 'calc') +
+      Lab.row('Ângulo máximo possível', 'quando β → 1: arccos(1/n)', `${Lab.num(deg(r.thetaMax), 1)}°`, 'calc') +
+      Lab.row('Fótons por centímetro', 'Frank–Tamm, 400 a 700 nm', r.above ? `${Lab.num(r.photons, 0)} /cm` : '0 /cm', 'calc');
+    $('#legend').innerHTML = `<div class="ttl">${state.medium.nome} · T = ${Lab.num(state.T, 3)} MeV<small>luz azul porque dN/dλ ∝ 1/λ²</small></div>
+      <dl><dt>θ ${Lab.badge('calc', 'calc.')}</dt><dd>${r.above ? Lab.num(deg(r.theta), 1) + '°' : 'sem luz'}</dd><dt>Fótons/cm ${Lab.badge('calc', 'calc.')}</dt><dd>${Lab.num(r.photons, 0)}</dd><dt>Cone e frentes de onda ${Lab.badge('sim', 'ilustr.')}</dt><dd>esquema</dd></dl>`;
+    chartPart();
+  } else if (m === 'beam'){
+    const above = trk.length > 0;
+    $('#kpis').innerHTML =
+      `<div class="kpi"><div class="l">Brilho dura</div><div class="n">${above ? Lab.num(trk.length, trk.length < 10 ? 2 : 1) : '0'}</div><div class="s">cm de água</div>${Lab.badge('calc')}</div>
+       <div class="kpi"><div class="l">Fótons/elétron</div><div class="n">${above ? Lab.num(trk.total, 0) : '0'}</div><div class="s">400–700 nm</div>${Lab.badge('calc')}</div>
+       <div class="kpi"><div class="l">T limiar</div><div class="n">${Lab.num(trk.Tth, 3)}</div><div class="s">MeV na água</div>${Lab.badge('calc')}</div>`;
+    $('#status').innerHTML = above
+      ? `<strong>O brilho é visível.</strong> O elétron de ${Lab.num(state.T, 2)} MeV emite luz Cherenkov ao longo de ${Lab.num(trk.length, 2)} cm; depois a energia cai abaixo de ${Lab.num(trk.Tth, 3)} MeV e a luz cessa, embora o elétron ainda percorra mais ${Lab.num(trk.Rth, 3)} cm até parar.`
+      : `<strong>Sem brilho.</strong> A energia (${Lab.num(state.T, 2)} MeV) está abaixo do limiar da água (${Lab.num(trk.Tth, 3)} MeV).`;
+    $('#rows').innerHTML =
+      Lab.row('Alcance CSDA a T₀', 'NIST ESTAR, água líquida', `${Lab.num(trk.R0, 3)} g/cm²`, 'ref', 'referência · NIST ESTAR') +
+      Lab.row('Alcance CSDA no limiar', `T = ${Lab.num(trk.Tth, 3)} MeV, onde o brilho acaba`, `${Lab.num(trk.Rth, 3)} g/cm²`, 'calc') +
+      Lab.row('Comprimento do brilho', '(R(T₀) − R(limiar)) / ρ, com ρ = 1 g/cm³', `${Lab.num(trk.length, 2)} cm`, 'calc') +
+      Lab.row('Ângulo no início da trilha', `n = ${Lab.num(WATER.n, 3)} (valor típico)`, above ? `${Lab.num(deg(Phys.angle(WATER.n, state.T)), 1)}°` : '—', 'calc') +
+      Lab.row('Largura e aparência do brilho', 'não calculadas; escolha visual', 'ilustrativa', 'sim');
+    $('#legend').innerHTML = `<div class="ttl">Elétrons de ${Lab.num(state.T, 2)} MeV na água<small>ilustração conceitual · não é foto</small></div>
+      <dl><dt>Brilho dura ${Lab.badge('calc', 'calc.')}</dt><dd>${above ? Lab.num(trk.length, 2) + ' cm' : '—'}</dd><dt>Largura e cor ${Lab.badge('sim', 'ilustr.')}</dt><dd>esquema</dd><dt>Escala ${Lab.badge('ref', 'ref.')}</dt><dd>1 un. = 1 cm</dd></dl>`;
+    chartBeam();
+  } else {
+    $('#kpis').innerHTML =
+      `<div class="kpi"><div class="l">T limiar</div><div class="n">${Lab.num(Phys.thresholdT(WATER.n), 3)}</div><div class="s">MeV, elétron na água</div>${Lab.badge('calc')}</div>
+       <div class="kpi"><div class="l">θ máximo</div><div class="n">${Lab.num(deg(Phys.angleMax(WATER.n)), 1)}°</div><div class="s">quando β → 1</div>${Lab.badge('calc')}</div>
+       <div class="kpi"><div class="l">Brilho</div><div class="n">${Lab.num(state.glow, 0)}%</div><div class="s">visual</div>${Lab.badge('sim')}</div>`;
+    $('#status').innerHTML = `<strong>Por que a piscina brilha:</strong> os conjuntos emitem partículas e raios gama que liberam elétrons rápidos na água. Os que passam de ${Lab.num(Phys.thresholdT(WATER.n), 3)} MeV, o limiar na água, deixam luz azul. <em>Conceito, a verificar nas fontes.</em>`;
+    $('#rows').innerHTML =
+      Lab.row('Limiar do elétron na água', 'T = mₑc² (1/√(1 − 1/n²) − 1), n = 1,333', `${Lab.num(Phys.thresholdT(WATER.n), 3)} MeV`, 'calc') +
+      Lab.row('Ângulo máximo na água', 'arccos(1/n)', `${Lab.num(deg(Phys.angleMax(WATER.n)), 1)}°`, 'calc') +
+      Lab.row('Brilho da piscina', 'controle visual, sem relação com atividade real', `${Lab.num(state.glow, 0)} %`, 'sim') +
+      Lab.row('Atividade, número de conjuntos, espectro', 'nenhum dado escolhido', '—', 'none');
+    $('#legend').innerHTML = `<div class="ttl">Piscina de reator (conceito)<small>ilustração conceitual · sem escala · não é foto</small></div>
+      <dl><dt>Limiar ${Lab.badge('calc', 'calc.')}</dt><dd>${Lab.num(Phys.thresholdT(WATER.n), 3)} MeV</dd><dt>Brilho ${Lab.badge('sim', 'ilustr.')}</dt><dd>${Lab.num(state.glow, 0)} %</dd></dl>`;
+    $('#chart').innerHTML = '';
+  }
+  $('#stamp').textContent = STAMPS[m];
+  if (S) S.canvas.setAttribute('aria-label', m === 'part' ? `Elétron de ${Lab.num(state.T, 2)} MeV em ${state.medium.nome}; ${res.above ? 'cone de luz Cherenkov a ' + Lab.num(deg(res.theta), 1) + ' graus' : 'abaixo do limiar, sem luz'}.`
+    : m === 'beam' ? `Feixe de elétrons de ${Lab.num(state.T, 2)} MeV em um tanque de água; brilho azul de ${Lab.num(trk.length, 1)} cm. Ilustração conceitual.`
+    : 'Piscina de reator com conjuntos de combustível e brilho azul. Ilustração conceitual.');
+}
+
+function chartPart(){
+  const W = 340, H = 190, l = 44, rr = 12, t = 24, b = 34, pw = W - l - rr, ph = H - t - b;
+  const n = state.medium.n, Tmin = 0.01, Tmax = 100;
+  const X = T => l + Math.log10(T / Tmin) / Math.log10(Tmax / Tmin) * pw, thMax = Phys.angleMax(n) * 180 / Math.PI;
+  const Y = a => t + ph - a / (thMax * 1.1) * ph;
+  let path = '', started = false;
+  for (let i = 0; i <= 200; i++){
+    const T = Tmin * Math.pow(Tmax / Tmin, i / 200), a = Phys.angle(n, T); if (a === null) continue;
+    path += (started ? 'L' : 'M') + X(T).toFixed(1) + ',' + Y(a * 180 / Math.PI).toFixed(1); started = true;
+  }
+  const cur = res.above ? `<circle cx="${X(state.T)}" cy="${Y(res.theta * 180 / Math.PI)}" r="4.5" class="c-pt"/>` : `<line x1="${X(state.T)}" x2="${X(state.T)}" y1="${t}" y2="${t + ph}" stroke="#d0261a" stroke-width="1.5" stroke-dasharray="3 2"/>`;
+  const tx = res.Tth >= Tmin && res.Tth <= Tmax ? `<line x1="${X(res.Tth)}" x2="${X(res.Tth)}" y1="${t}" y2="${t + ph}" class="c-grid"/><text x="${X(res.Tth)}" y="${t - 6}" text-anchor="middle">limiar</text>` : '';
+  $('#chart').innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Ângulo Cherenkov em função da energia cinética do elétron em ${state.medium.nome}">
+    <text x="${l}" y="12" class="ttl">θ × energia do elétron · ${state.medium.nome} · calculado</text>${tx}
+    ${[0, thMax / 2, thMax].map(v => `<line x1="${l}" x2="${W - rr}" y1="${Y(v)}" y2="${Y(v)}" class="c-grid"/><text x="${l - 4}" y="${Y(v) + 3}" text-anchor="end">${Lab.num(v, 0)}°</text>`).join('')}
+    ${[0.01, 0.1, 1, 10, 100].map(v => `<text x="${X(v)}" y="${H - 18}" text-anchor="middle">${v}</text>`).join('')}
+    <path d="${path}" class="c-line"/>${cur}
+    <line x1="${l}" x2="${l}" y1="${t}" y2="${t + ph}" class="c-axis"/><line x1="${l}" x2="${W - rr}" y1="${t + ph}" y2="${t + ph}" class="c-axis"/>
+    <text x="${l + pw / 2}" y="${H - 4}" text-anchor="middle">energia cinética T (MeV, escala log)</text></svg>`;
+}
+function chartBeam(){
+  const W = 340, H = 190, l = 46, rr = 12, t = 24, b = 34, pw = W - l - rr, ph = H - t - b;
+  if (!trk.length){ $('#chart').innerHTML = ''; return; }
+  const X = x => l + x / trk.length * pw, Y = p => t + ph - p / (trk.pmax * 1.1) * ph;
+  let path = ''; trk.slices.forEach((s, i) => { path += (i ? 'L' : 'M') + X(s.x).toFixed(1) + ',' + Y(s.p).toFixed(1); });
+  $('#chart').innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Fótons por centímetro ao longo da trilha do elétron na água">
+    <text x="${l}" y="12" class="ttl">fótons/cm × profundidade na água · calculado</text>
+    ${[0, 0.5, 1].map(f => `<line x1="${l}" x2="${W - rr}" y1="${Y(trk.pmax * f)}" y2="${Y(trk.pmax * f)}" class="c-grid"/><text x="${l - 4}" y="${Y(trk.pmax * f) + 3}" text-anchor="end">${Lab.num(trk.pmax * f, 0)}</text>`).join('')}
+    ${[0, 0.5, 1].map(f => `<text x="${X(trk.length * f)}" y="${H - 18}" text-anchor="middle">${Lab.num(trk.length * f, trk.length < 10 ? 1 : 0)}</text>`).join('')}
+    <path d="${path}" class="c-line"/>
+    <line x1="${l}" x2="${l}" y1="${t}" y2="${t + ph}" class="c-axis"/><line x1="${l}" x2="${W - rr}" y1="${t + ph}" y2="${t + ph}" class="c-axis"/>
+    <text x="${l + pw / 2}" y="${H - 4}" text-anchor="middle">profundidade (cm) · a luz cai conforme o elétron perde energia</text></svg>`;
+}
+
+/* ---- controles ---- */
+const sel = $('#medium');
+sel.innerHTML = MEDIA.map(m => `<option value="${m.id}">${m.nome} · n = ${Lab.num(m.n, 4)}</option>`).join('');
+const slT = Lab.slider('#sl', { id: 'T', label: 'Energia cinética do elétron', unit: 'MeV', hint: '0,01 a 100, escala log', min: 0.01, max: 100, log: true, step: 'any', value: state.T }, v => { state.T = v; render(); });
+Lab.slider('#sl-slow', { id: 'slow', label: 'Câmera lenta', unit: '×', hint: 'velocidade da animação', min: 0.05, max: 1, step: 0.05, value: state.slow }, v => { state.slow = v; });
+Lab.slider('#sl-pool', { id: 'glow', label: 'Brilho da piscina (visual)', unit: '%', hint: 'só aparência', min: 0, max: 100, step: 5, value: state.glow }, v => { state.glow = v; render(); });
+sel.addEventListener('change', () => { state.medium = MEDIA.find(m => m.id === sel.value); if (S) S.part.applyMedium(); render(); });
+
+function buildPresets(){
+  const list = PRESETS[state.mode];
+  $('#presets').innerHTML = list.map((p, i) => `<button type="button" class="btn" data-i="${i}">${p.nome}</button>`).join('');
+  $('#presets').previousElementSibling.hidden = list.length === 0;
+  Lab.$$('#presets button').forEach(b => b.addEventListener('click', () => {
+    const p = list[+b.dataset.i];
+    if (p.m){ state.medium = MEDIA.find(m => m.id === p.m); sel.value = p.m; if (S) S.part.applyMedium(); }
+    slT.set(p.T);
+  }));
+}
+['wave', 'cone', 'ray', 'ring'].forEach(k => $('#t-' + k).addEventListener('change', e => { state[k] = e.target.checked; }));
+$('#reset').addEventListener('click', () => S && S.resetCamera());
+$('#restart').addEventListener('click', () => S && S.part.restart());
+
+function setMode(m, instant){
+  if (m === state.mode) return;
+  const fade = $('#fade');
+  const go = () => {
+    if (S) S.setMode(m); else state.mode = m;
+    $$('.modes button').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === m));
+    $$('[data-modes]').forEach(s => { s.hidden = !s.dataset.modes.split(' ').includes(m); });
+    sel.value = state.medium.id;
+    buildPresets();
+    if (m === 'beam' && state.T < 5) slT.set(10); else render();
+    fade.classList.remove('on');
+  };
+  if (instant || matchMedia('(prefers-reduced-motion: reduce)').matches) return go();
+  fade.classList.add('on'); setTimeout(go, 190);
+}
+$$('.modes button').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+if (S) S.canvas.addEventListener('keydown', e => { const k = { '1': 'part', '2': 'beam', '3': 'pool' }[e.key]; if (k) setMode(k); });
+Lab.theme(d => { if (S) S.applyTheme(d); });
+$$('[data-modes]').forEach(s => { s.hidden = !s.dataset.modes.split(' ').includes(state.mode); });
+buildPresets();
+render();
+</script>
+</body>
+</html>
