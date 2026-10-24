@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Por que a água de um reator brilha azul? — material de apoio</title>
+<meta name="description" content="Material de apoio simples e videoaula sobre Efeito Cherenkov. Texto para quem está começando e uma parte extra com equações e unidades.">
+<style>
+:root{
+  --bg:#f3f5fb; --card:rgba(255,255,255,.82); --card-solid:#ffffff; --field:#eef1f9;
+  --ink:#0e1525; --muted:#475268; --line:rgba(14,21,37,.12); --track:rgba(14,21,37,.14);
+  --accent:#2350f0; --accent2:#7a3cff; --accent-ink:#ffffff; --glow1:rgba(35,80,240,.16); --glow2:rgba(122,60,255,.12);
+  --warn-bg:#fff3d6; --warn-ink:#5e3500; --warn-line:#d9961b;
+  --b-exp:#0a7a56; --b-calc:#1f4fd1; --b-sim:#944a00; --b-none:#475268; --b-ok:#0a7a56;
+  --stage-bg:radial-gradient(120% 90% at 50% -10%,#f1f5ff 0%,#d9e2f6 60%,#c8d4ee 100%);
+  --scene-edge:#4a5a7a; --shadow:0 18px 50px -24px rgba(20,35,80,.35); --focus:#2350f0;
+  --sans:"Inter","Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,Roboto,sans-serif;
+  --mono:ui-monospace,"Cascadia Code","SF Mono",Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#060912; --card:rgba(17,24,42,.74); --card-solid:#101828; --field:#0b1222;
+    --ink:#eaf0ff; --muted:#a9b6d3; --line:rgba(160,185,255,.16); --track:rgba(160,185,255,.22);
+    --accent:#6ea8ff; --accent2:#a78bfa; --accent-ink:#06101f; --glow1:rgba(70,120,255,.22); --glow2:rgba(150,100,255,.16);
+    --warn-bg:#2b2110; --warn-ink:#ffd98f; --warn-line:#8a6420;
+    --b-exp:#5eead4; --b-calc:#93c5fd; --b-sim:#fcd34d; --b-none:#a9b6d3; --b-ok:#5eead4;
+    --stage-bg:radial-gradient(110% 85% at 50% -10%,#16275a 0%,#0b1330 55%,#070b18 100%);
+    --scene-edge:#8ea6d0; --shadow:0 18px 60px -28px rgba(0,0,0,.8); --focus:#9cc4ff; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#060912; --card:rgba(17,24,42,.74); --card-solid:#101828; --field:#0b1222;
+  --ink:#eaf0ff; --muted:#a9b6d3; --line:rgba(160,185,255,.16); --track:rgba(160,185,255,.22);
+  --accent:#6ea8ff; --accent2:#a78bfa; --accent-ink:#06101f; --glow1:rgba(70,120,255,.22); --glow2:rgba(150,100,255,.16);
+  --warn-bg:#2b2110; --warn-ink:#ffd98f; --warn-line:#8a6420;
+  --b-exp:#5eead4; --b-calc:#93c5fd; --b-sim:#fcd34d; --b-none:#a9b6d3; --b-ok:#5eead4;
+  --stage-bg:radial-gradient(110% 85% at 50% -10%,#16275a 0%,#0b1330 55%,#070b18 100%);
+  --scene-edge:#8ea6d0; --shadow:0 18px 60px -28px rgba(0,0,0,.8); --focus:#9cc4ff; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;min-height:100vh;color:var(--ink);font-family:var(--sans);line-height:1.5;font-size:15px;
+  background:radial-gradient(60% 50% at 8% 0%,var(--glow1),transparent 70%),radial-gradient(50% 45% at 100% 10%,var(--glow2),transparent 70%),var(--bg);
+  background-attachment:fixed;-webkit-font-smoothing:antialiased}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px;border-radius:8px}
+a{color:var(--accent)}
+.skip{position:absolute;left:-999px;top:0;background:var(--accent);color:var(--accent-ink);padding:.5rem 1rem;z-index:50;border-radius:0 0 10px 0}
+.skip:focus{left:0}
+[hidden]{display:none!important}
+
+header.top{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem 1rem;margin:.75rem .75rem 0;padding:.6rem .9rem;
+  border:1px solid var(--line);border-radius:18px;background:var(--card);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:var(--shadow)}
+.logo{width:30px;height:30px;border-radius:50%;flex:none;background:conic-gradient(from 210deg,var(--accent),var(--accent2),#33d6ff,var(--accent));
+  box-shadow:0 0 0 4px var(--glow1),0 0 22px var(--accent);position:relative}
+.logo::after{content:"";position:absolute;inset:8px;border-radius:50%;background:var(--card-solid)}
+header.top h1{font-size:1.15rem;margin:0;font-weight:750;letter-spacing:-.01em}
+header.top h1 span{background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+header.top p{margin:0;color:var(--muted);font-size:.82rem;flex:1 1 260px}
+.chip{display:inline-flex;align-items:center;gap:.4rem;font:inherit;font-size:.78rem;font-weight:600;cursor:pointer;color:var(--ink);text-decoration:none;
+  border:1px solid var(--line);background:var(--card-solid);padding:.38rem .8rem;border-radius:999px;transition:transform .15s,border-color .15s}
+.chip:hover{border-color:var(--accent);transform:translateY(-1px)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.pill-note{font-size:.72rem;font-weight:700;color:var(--warn-ink);background:var(--warn-bg);border:1px solid var(--warn-line);padding:.2rem .6rem;border-radius:999px}
+
+.layout{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(340px,.8fr);gap:.9rem;padding:.9rem .75rem;align-items:start;max-width:1800px;margin:0 auto}
+.stagewrap{position:sticky;top:.75rem}
+.stage{position:relative;height:calc(100vh - 6.4rem);min-height:420px;border:1px solid var(--line);border-radius:26px;background:var(--stage-bg);overflow:hidden;box-shadow:var(--shadow)}
+.stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+.stage canvas:active{cursor:grabbing}
+.ov{position:absolute;font-size:.72rem;pointer-events:none;color:var(--ink)}
+.glass{background:var(--card);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:14px}
+.stamp{left:.7rem;top:.7rem;padding:.3rem .65rem;max-width:calc(100% - 11rem);font-weight:600;color:var(--muted)}
+.hint{right:.7rem;bottom:.7rem;padding:.25rem .6rem;color:var(--muted);border-radius:999px}
+.tools{right:.7rem;top:.7rem;display:flex;gap:.4rem;pointer-events:auto}
+.legend{left:.7rem;bottom:.7rem;padding:.55rem .75rem .6rem;width:min(330px,calc(100% - 9.5rem))}
+.legend .ttl{font-weight:700;margin-bottom:.35rem;line-height:1.25}
+.legend .ttl small{display:block;font-weight:500;color:var(--muted)}
+.legend dl{display:grid;grid-template-columns:1fr auto;gap:.15rem .8rem;margin:0}
+.legend dt{color:var(--muted)} .legend dd{margin:0;font-family:var(--mono);font-weight:700;text-align:right}
+.lbl{position:absolute;left:0;top:0;font-size:.7rem;padding:.15rem .5rem;white-space:nowrap;pointer-events:none;display:none;
+  background:var(--card);backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:999px;font-weight:600}
+.nogl{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;padding:2rem;color:var(--muted)}
+
+.panels{display:flex;flex-direction:column;gap:.9rem;min-width:0}
+.card{background:var(--card);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--line);border-radius:22px;padding:1rem 1.05rem;box-shadow:var(--shadow)}
+.card h2{font-size:1rem;margin:0 0 .6rem;font-weight:700}
+.card h3{font-size:.72rem;margin:1rem 0 .35rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700}
+.ctl{margin:.7rem 0}
+.ctl label,.ctl legend{display:flex;justify-content:space-between;gap:.5rem;font-size:.84rem;font-weight:600;margin-bottom:.3rem;padding:0}
+.ctl .unit{color:var(--muted);font-weight:500;font-size:.74rem;text-align:right}
+.pair{display:grid;grid-template-columns:1fr 6.4rem;gap:.8rem;align-items:center}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:24px;background:transparent;margin:0;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:999px;background:linear-gradient(90deg,var(--accent),var(--accent2)) 0/var(--p,0%) 100% no-repeat,var(--track)}
+input[type=range]::-moz-range-track{height:6px;border-radius:999px;background:linear-gradient(90deg,var(--accent),var(--accent2)) 0/var(--p,0%) 100% no-repeat,var(--track)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;margin-top:-7px;border-radius:50%;background:#fff;border:3px solid var(--accent);box-shadow:0 2px 8px rgba(0,0,0,.3)}
+input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid var(--accent);box-shadow:0 2px 8px rgba(0,0,0,.3)}
+input[type=number],select{font-family:var(--mono);font-size:.86rem;padding:.4rem .6rem;border:1px solid var(--line);background:var(--field);color:var(--ink);width:100%;border-radius:12px}
+select{font-family:var(--sans)}
+input[aria-invalid="true"]{outline:2px solid #d0261a}
+.seg{display:flex;gap:.3rem;background:var(--field);padding:.25rem;border-radius:999px;border:1px solid var(--line);flex-wrap:wrap}
+.seg label{flex:1;margin:0;text-align:center;cursor:pointer;position:relative;display:block;font-weight:600;font-size:.8rem;white-space:nowrap}
+.seg input{position:absolute;opacity:0;inset:0;cursor:pointer;margin:0}
+.seg span{display:block;padding:.4rem .6rem;border-radius:999px}
+.seg input:checked+span{background:linear-gradient(90deg,var(--accent),var(--accent2));color:var(--accent-ink)}
+.seg label:has(input:focus-visible){outline:3px solid var(--focus);outline-offset:2px;border-radius:999px}
+fieldset{border:0;margin:.7rem 0 0;padding:0}
+.btnrow{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.6rem}
+.btn{font:inherit;font-size:.82rem;font-weight:650;cursor:pointer;border:1px solid var(--line);background:var(--card-solid);color:var(--ink);padding:.5rem 1rem;border-radius:999px}
+.btn.pri{background:linear-gradient(90deg,var(--accent),var(--accent2));color:var(--accent-ink);border-color:transparent}
+.btn:hover{filter:brightness(1.08)}
+
+.rows{display:flex;flex-direction:column}
+.row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.1rem .8rem;padding:.55rem 0;border-bottom:1px solid var(--line);align-items:baseline}
+.row:last-child{border-bottom:0}
+.row .k{font-size:.85rem;font-weight:550}
+.row .k small{display:block;color:var(--muted);font-size:.74rem;font-weight:400}
+.row .val{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:.2rem}
+.v{font-family:var(--mono);font-size:.98rem;font-weight:700;font-variant-numeric:tabular-nums}
+.badge{font-size:.66rem;font-weight:650;padding:.05rem .5rem;border-radius:999px;white-space:nowrap;line-height:1.55;color:var(--bc,var(--ink));
+  background:color-mix(in srgb,var(--bc) 14%,transparent);border:1px solid color-mix(in srgb,var(--bc) 55%,transparent)}
+.b-exp{--bc:var(--b-exp)} .b-calc{--bc:var(--b-calc)} .b-sim{--bc:var(--b-sim)} .b-none{--bc:var(--b-none)} .b-ok{--bc:var(--b-ok)}
+.b-sim{border-style:dashed} .b-none{border-style:dotted}
+.alert{background:var(--warn-bg);color:var(--warn-ink);border:1px solid var(--warn-line);border-radius:14px;padding:.6rem .8rem;font-size:.82rem;margin:.6rem 0}
+.alert.info{background:var(--field);color:var(--ink);border-color:var(--line)}
+.note{font-size:.78rem;color:var(--muted);margin:.5rem 0}
+.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.55rem;margin-bottom:.4rem}
+.kpi{border:1px solid var(--line);border-radius:16px;padding:.6rem .7rem;background:var(--field);min-width:0}
+.kpi .l{font-size:.7rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.kpi .n{font-family:var(--mono);font-size:1.3rem;font-weight:750;line-height:1.2;margin:.15rem 0;overflow-wrap:anywhere}
+.kpi .s{font-size:.68rem;color:var(--muted);margin-bottom:.25rem}
+.kpi .badge{white-space:normal;display:inline-block;line-height:1.3;padding:.1rem .45rem}
+svg.chart{width:100%;height:auto;display:block;background:var(--field);border:1px solid var(--line);border-radius:16px;margin-top:.5rem}
+svg.chart text{font-family:var(--mono);font-size:9.5px;fill:var(--muted)}
+svg.chart .ttl{fill:var(--ink);font-weight:700;font-family:var(--sans)}
+.c-axis{stroke:var(--muted);stroke-width:1;fill:none}
+.c-grid{stroke:var(--line);stroke-width:.8}
+.c-line{stroke:var(--accent);stroke-width:2.2;fill:none}
+.c-sim{stroke:var(--accent);stroke-width:2;fill:none;stroke-dasharray:5 3}
+.c-pt{fill:var(--accent2);stroke:var(--card-solid);stroke-width:1.5}
+table{border-collapse:separate;border-spacing:0;width:100%;font-size:.8rem;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+th,td{padding:.45rem .6rem;text-align:left;border-bottom:1px solid var(--line)}
+tr:last-child td{border-bottom:0}
+th{background:var(--field);font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+td.m{font-family:var(--mono);font-weight:700}
+ul.lim{margin:.2rem 0 0;padding-left:1.1rem;font-size:.84rem}
+ul.lim li{margin:.45rem 0}
+footer{padding:1rem;text-align:center;color:var(--muted);font-size:.76rem}
+
+@media (max-width:960px){
+  .layout{grid-template-columns:minmax(0,1fr);padding:.5rem}
+  header.top{margin:.5rem .5rem 0}
+  .stagewrap{top:.4rem;z-index:5}
+  .stage{height:44vh;min-height:280px;border-radius:22px}
+  .legend{width:min(250px,calc(100% - 1.4rem));font-size:.66rem}
+  .hint{display:none}
+  .stamp{max-width:calc(100% - 9rem);font-size:.64rem}
+  .kpi .n{font-size:1.05rem}
+}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.chip{transition:none}}
+
+/* ===== celular: palco maior e sobreposições enxutas ===== */
+@media (max-width:960px){
+  header.top{padding:.45rem .7rem;gap:.35rem .6rem;margin:.4rem .4rem 0}
+  header.top .logo{width:22px;height:22px}
+  header.top .logo::after{inset:6px}
+  header.top h1{font-size:.95rem}
+  header.top p{display:none}
+  .pill-note{font-size:.62rem;padding:.1rem .45rem}
+  .chip{font-size:.7rem;padding:.28rem .6rem}
+  .stage{height:54vh!important;min-height:300px!important}
+  .hint{display:none!important}
+  .stamp{font-size:.58rem!important;padding:.2rem .5rem!important;max-width:calc(100% - 6.2rem)!important;line-height:1.25;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  .tools{right:.4rem!important;top:.4rem!important;gap:.25rem!important;flex-direction:column;align-items:flex-end}
+  .tools .chip{padding:.22rem .5rem!important;font-size:.64rem!important}
+  .legend{left:.4rem!important;bottom:.4rem!important;padding:.3rem .5rem!important;width:min(200px,62%)!important;font-size:.58rem!important}
+  .legend .ttl{margin-bottom:.15rem;font-size:.62rem}
+  .legend .ttl small,.legend dl{display:none}
+  .lbl{font-size:.58rem;padding:.04rem .3rem}
+  .modes{padding:.2rem;border-radius:14px}
+  .modes button{font-size:.7rem;padding:.4rem .25rem}
+  .modes .k{display:none}
+  .modes button small{display:none}
+}
+
+</style>
+<style>
+.read{max-width:780px;margin:0 auto;padding:1rem .9rem 3rem}
+.read .eyebrow{font-size:.74rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.read h1{font-size:clamp(1.6rem,5vw,2.4rem);line-height:1.15;margin:.3rem 0 1rem;letter-spacing:-.01em}
+.read h2{font-size:1.25rem;margin:1.8rem 0 .4rem}
+.read h3{font-size:1rem;margin:1.2rem 0 .3rem;text-transform:none;letter-spacing:0;color:var(--ink)}
+.read p,.read li,.read dd{font-size:1.05rem;line-height:1.7}
+.read li{margin:.3rem 0}
+.read em{font-style:italic}
+.tldr{border-left:5px solid var(--accent);background:var(--card);padding:1rem 1.2rem;border-radius:16px;box-shadow:var(--shadow)}
+.tldr p{margin:0}
+.tldr .t{font-size:.72rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:.3rem}
+.analogy{background:var(--field);border:1px dashed var(--line);border-radius:16px;padding:.1rem 1.1rem 1rem}
+.cta,.video,.gloss,.quiz,details.more,.src{margin-top:2rem;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:1.1rem 1.2rem;box-shadow:var(--shadow)}
+.cta h2,.video h2,.gloss h2,.quiz h2{margin-top:0}
+.video .frame{position:relative;padding-top:56.25%;border-radius:14px;overflow:hidden;background:#000}
+.video iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.video .soon{background:var(--field);border:1px dashed var(--line);border-radius:14px;padding:1rem 1.1rem}
+.video .soon p{margin:.2rem 0}
+dt{font-weight:700;margin-top:.7rem}
+dd{margin:.1rem 0 0;color:var(--muted)}
+.q{border:1px solid var(--line);border-radius:14px;padding:.8rem 1rem;margin:.8rem 0;background:var(--field)}
+.q legend{font-weight:700;padding:0 .3rem}
+.q label{display:flex;gap:.5rem;align-items:flex-start;padding:.35rem .2rem;cursor:pointer;font-size:1rem}
+.q input{margin-top:.35rem;accent-color:var(--accent)}
+.fb{font-size:.95rem;margin:.4rem 0 0;font-weight:600}
+.fb.ok{color:var(--b-exp)} .fb.no{color:#d0261a}
+details.more summary{cursor:pointer;font-weight:750;font-size:1.1rem}
+details.more table{margin:.5rem 0}
+.src ul{font-size:.85rem;padding-left:1.1rem;color:var(--muted)} .src li{font-size:.85rem;line-height:1.5}
+.btn.big{display:inline-block;text-decoration:none;margin-top:.6rem}
+@media (max-width:960px){header.top p{display:none}}
+</style>
+</head>
+<body>
+<a class="skip" href="#conteudo">Ir para o conteúdo</a>
+<header class="top">
+  <div class="logo" aria-hidden="true"></div>
+  <h1><span>Cherenkov</span> · material de apoio</h1>
+  <p>Texto simples, videoaula e uma parte extra para quem quer ir mais fundo.</p>
+  <a class="chip" href="index.html">← Todos os simuladores</a>
+  <a class="chip" href="efeito-cherenkov.html">Abrir o simulador →</a>
+  <button id="theme" class="chip" type="button" aria-pressed="false">Tema escuro</button>
+</header>
+
+<main class="read" id="conteudo">
+  <p class="eyebrow">Efeito Cherenkov · material de apoio</p>
+  <h1>Por que a água de um reator brilha azul?</h1>
+  <div class="tldr"><div class="t">Em resumo</div><p>O brilho azul das piscinas de reatores nucleares é o <strong>efeito Cherenkov</strong>. Ele acontece quando uma partícula com carga elétrica viaja por um material transparente <em>mais rápido do que a luz consegue viajar dentro daquele material</em>. A luz azul é emitida pelo próprio material, e não pela água "ficar radioativa".</p></div>
+
+  <section class="video" aria-labelledby="h-video"><h2 id="h-video">Videoaula</h2><div id="video-slot"></div>
+    <details style="margin-top:.7rem"><summary>Do que fala a videoaula</summary><ol><li>O que é o brilho azul do reator (30 s)</li><li>A luz é mais lenta na água; analogia do avião supersônico (1 min)</li><li>Mostrar o cone e o limiar no simulador (1 min 30 s)</li><li>Por que é azul e o que não é: não é radioativa a água (1 min)</li><li>Resumo e desafio: qual meio tem o maior ângulo? (30 s)</li></ol></details>
+  </section>
+
+<section class="" aria-labelledby="s0"><h2 id="s0">A luz anda mais devagar dentro da água</h2><p>No vácuo, a luz viaja a cerca de 300 mil km por segundo. Dentro de um material transparente ela fica mais lenta. Na água, anda a cerca de <strong>75%</strong> dessa velocidade (uns 225 mil km/s). No vidro, a cerca de dois terços.</p><p>Essa "lentidão" é medida por um número chamado <strong>índice de refração</strong> (n). Quanto maior o n, mais devagar a luz anda. Na água, n é perto de 1,33.</p></section>
+<section class="" aria-labelledby="s1"><h2 id="s1">Nada passa da velocidade da luz... no vácuo</h2><p>A regra de que nada anda mais rápido que a luz vale para a velocidade da luz <strong>no vácuo</strong>. Dentro da água, a luz é mais lenta, e uma partícula muito veloz pode <strong>ultrapassá-la</strong> sem quebrar nenhuma lei da física.</p></section>
+<section class="analogy" aria-labelledby="s2"><h2 id="s2">A analogia do barco e do avião</h2><p>Um barco que anda mais rápido do que as ondas que ele mesmo faz deixa um rastro em forma de "V". Um avião supersônico, mais rápido que o som, deixa uma onda de choque em forma de cone: é o estrondo.</p><p>A partícula rápida faz o mesmo com a luz: deixa um <strong>"estrondo de luz" em forma de cone</strong>. É isso que o simulador desenha.</p></section>
+<section class="" aria-labelledby="s3"><h2 id="s3">Por que a luz é azul?</h2><p>A luz de Cherenkov tem mais energia nos comprimentos de onda curtos. Na prática, há muito mais luz azul e violeta do que vermelha. Por isso o brilho que vemos é azul.</p></section>
+<section class="" aria-labelledby="s4"><h2 id="s4">A partícula precisa ser radioativa?</h2><p>Não. Basta ser uma <strong>partícula carregada e rápida</strong> (um elétron, por exemplo). Em um reator, os materiais radioativos do combustível geram partículas rápidas que atravessam a água, e daí vem a luz.</p><p>Abaixo de uma energia mínima, o <strong>limiar</strong>, não há luz. Para um elétron na água, o limiar é cerca de <strong>0,26 MeV</strong>. (MeV é uma unidade de energia usada para partículas.)</p></section>
+<section class="" aria-labelledby="s5"><h2 id="s5">Para que isso serve?</h2><p>Físicos usam a luz de Cherenkov para descobrir a velocidade de partículas em detectores. E o brilho azul em piscinas de reatores é, para muita gente, a imagem mais conhecida da energia nuclear.</p></section>
+
+  <section class="cta" aria-labelledby="h-exp"><h2 id="h-exp">Experimente no simulador</h2>
+    <ol><li>Abra a visão <strong>1 · Partícula e cone</strong> e clique em <em>"Água, acima do limiar (3 MeV)"</em>. Veja o cone e o ângulo de cerca de 41°.</li><li>Clique em <em>"Água, abaixo do limiar (0,1 MeV)"</em>. O cone some: a partícula é lenta demais.</li><li>Troque o meio para <em>Ar</em> com 5 MeV. Ainda não há luz: no ar, o limiar é de uns 20 MeV.</li><li>Vá para a visão <strong>2 · Feixe na água</strong> (10 MeV). O brilho dura uns 5 cm: depois disso o elétron fica lento demais.</li><li>Abra a visão <strong>3 · Piscina de reator</strong> e veja o brilho clássico. É uma ilustração, sem escala real.</li></ol>
+    <a class="btn pri big" href="efeito-cherenkov.html">Abrir o simulador</a>
+  </section>
+
+  <section class="gloss" aria-labelledby="h-gl"><h2 id="h-gl">Glossário rápido</h2><dl><dt>Partícula carregada</dt><dd>partícula com carga elétrica, como o elétron.</dd><dt>Índice de refração (n)</dt><dd>número que diz quantas vezes a luz anda mais devagar no material do que no vácuo.</dd><dt>Elétron-volt (eV) e MeV</dt><dd>unidades de energia de partículas. 1 MeV = 1 milhão de eV.</dd><dt>Limiar</dt><dd>energia mínima da partícula para haver luz de Cherenkov.</dd><dt>Cone de Cherenkov</dt><dd>forma da frente de luz atrás da partícula.</dd></dl></section>
+
+  <section class="quiz" aria-labelledby="h-q"><h2 id="h-q">Teste o que você entendeu</h2>
+    
+    <fieldset class="q" data-c="1" data-w="A luz vem do próprio material, quando uma partícula carregada passa mais rápido do que a luz anda nele."><legend>1. De onde vem o brilho azul da piscina do reator?</legend>
+      <label><input type="radio" name="q0" value="0"> <span>Da água ficando radioativa.</span></label><label><input type="radio" name="q0" value="1"> <span>De luz emitida quando uma partícula carregada é mais rápida que a luz naquele meio.</span></label><label><input type="radio" name="q0" value="2"> <span>Do calor da água.</span></label>
+      <p class="fb" role="status" aria-live="polite"></p></fieldset>
+    <fieldset class="q" data-c="0" data-w="Abaixo do limiar a partícula é mais lenta que a luz na água, então não há cone."><legend>2. O que acontece se o elétron na água estiver abaixo do limiar (cerca de 0,26 MeV)?</legend>
+      <label><input type="radio" name="q1" value="0"> <span>Não há cone nem luz de Cherenkov.</span></label><label><input type="radio" name="q1" value="1"> <span>A luz fica vermelha.</span></label><label><input type="radio" name="q1" value="2"> <span>O cone fica maior.</span></label>
+      <p class="fb" role="status" aria-live="polite"></p></fieldset>
+    <fieldset class="q" data-c="1" data-w="A quantidade de luz cresce para comprimentos de onda curtos, então predomina o azul."><legend>3. Por que a luz de Cherenkov parece azul?</legend>
+      <label><input type="radio" name="q2" value="0"> <span>Porque a água é azul.</span></label><label><input type="radio" name="q2" value="1"> <span>Porque há mais luz de comprimentos de onda curtos (azul e violeta).</span></label><label><input type="radio" name="q2" value="2"> <span>Porque o elétron é azul.</span></label>
+      <p class="fb" role="status" aria-live="polite"></p></fieldset>
+  </section>
+
+  <details class="more"><summary>Quero saber mais: equações, unidades e dados</summary>
+    
+    <h3>As equações</h3>
+    <ul>
+      <li><strong>Limiar:</strong> há luz se a velocidade da partícula passa de c/n, isto é, β = v/c &gt; 1/n.</li>
+      <li><strong>Ângulo do cone:</strong> cos θ = 1/(nβ). O máximo, quando β → 1, é θ = arccos(1/n): cerca de 41,4° na água.</li>
+      <li><strong>Energia cinética do elétron:</strong> T = (γ − 1)·mₑc², com mₑc² = 0,511 MeV e γ = 1/√(1 − β²).</li>
+      <li><strong>Limiar do elétron:</strong> T_lim = mₑc²·(1/√(1 − 1/n²) − 1). Na água, 0,262 MeV; no vidro, 0,168 MeV; no ar, cerca de 20,6 MeV.</li>
+      <li><strong>Quantidade de luz</strong> (Frank–Tamm, entre 400 e 700 nm): cerca de 490·sen²θ fótons por centímetro. Na água, perto de 215 fótons/cm para partículas muito rápidas.</li>
+    </ul>
+    <h3>Unidades</h3>
+    <ul>
+      <li><strong>eV, MeV:</strong> energia de uma partícula. 1 eV = 1,602 × 10⁻¹⁹ J.</li>
+      <li><strong>nm:</strong> nanômetro, 10⁻⁹ m (luz visível: 400 a 700 nm).</li>
+      <li><strong>g/cm²:</strong> alcance em massa por área, usado para dizer até onde o elétron vai (o NIST ESTAR dá 4,975 g/cm² para 10 MeV em água).</li>
+    </ul>
+    <h3>O que é cálculo e o que é ilustração</h3>
+    <p>Limiar, ângulo, fótons por centímetro e o comprimento do brilho na água (com a tabela do NIST ESTAR) são <strong>calculados</strong>. O cone desenhado, a largura do feixe e a piscina de reator são <strong>ilustração</strong>. Os índices de refração são valores típicos, a verificar.</p>
+  </details>
+
+  <section class="src" aria-labelledby="h-src"><h2 id="h-src" style="margin-top:0;font-size:1rem">Fontes</h2><ul><li>NIST ESTAR, alcance CSDA de elétrons em água líquida (physics.nist.gov/PhysRefData/Star).</li><li>Equações de livro-texto de física moderna (efeito Cherenkov e Frank–Tamm).</li></ul>
+    <p class="note">Material educacional. Os números do simulador trazem etiquetas de origem (experimental, referência, calculado, ilustrativo). Em caso de dúvida técnica, consulte um profissional de radioproteção.</p>
+  </section>
+</main>
+<footer>Cherenkov · simulador educacional · material de apoio</footer>
+
+<script>
+"use strict";
+/* Biblioteca compartilhada dos simuladores: tema, formatação, etiquetas de tipo,
+   controles deslizantes e palco 3D (câmera orbital própria, rótulos HTML). */
+const Lab = (() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+
+  /* ---- formatação pt-BR ---- */
+  const cache = {};
+  const nf = d => cache[d] || (cache[d] = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: d }));
+  const num = (x, d = 2) => (x === null || x === undefined || !isFinite(x)) ? '—' : nf(d).format(x);
+  const SUP = { '0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','-':'⁻' };
+  const sci = (x, d = 2) => {
+    if (!isFinite(x)) return '—'; if (x === 0) return '0';
+    const [m, e] = x.toExponential(d).split('e');
+    return `${m.replace('.', ',')} × 10${String(parseInt(e, 10)).split('').map(c => SUP[c] || c).join('')}`;
+  };
+
+  /* ---- etiquetas de tipo ---- */
+  const TYPES = {
+    exp:  { cls: 'b-exp',  glyph: '■', text: 'experimental' },
+    calc: { cls: 'b-calc', glyph: 'ƒ', text: 'calculado' },
+    sim:  { cls: 'b-sim',  glyph: '≈', text: 'simulado/ilustrativo' },
+    ref:  { cls: 'b-ok',   glyph: '✓', text: 'dado de referência' },
+    none: { cls: 'b-none', glyph: '∅', text: 'sem dados' }
+  };
+  const badge = (t, text) => `<span class="badge ${TYPES[t].cls}">${TYPES[t].glyph} ${(text || TYPES[t].text).replace(/^[■ƒ≈✓∅]\s*/, '')}</span>`;
+  const row = (k, sub, v, t, tText) =>
+    `<div class="row"><div class="k">${k}${sub ? `<small>${sub}</small>` : ''}</div><div class="val"><span class="v">${v}</span>${badge(t, tText)}</div></div>`;
+
+  /* ---- tema ---- */
+  function theme(onChange){
+    const root = document.documentElement, btn = $('#theme');
+    let saved = null; try { saved = localStorage.getItem('cherenkov-theme'); } catch (e) {}
+    if (saved) root.setAttribute('data-theme', saved);
+    const isDark = () => root.getAttribute('data-theme') === 'dark' || (!root.getAttribute('data-theme') && matchMedia('(prefers-color-scheme: dark)').matches);
+    const sync = () => { const d = isDark(); btn.setAttribute('aria-pressed', d); btn.textContent = d ? 'Tema claro' : 'Tema escuro'; if (onChange) onChange(d); };
+    btn.addEventListener('click', () => {
+      const n = isDark() ? 'light' : 'dark'; root.setAttribute('data-theme', n);
+      try { localStorage.setItem('cherenkov-theme', n); } catch (e) {}
+      sync();
+    });
+    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', sync);
+    sync();
+    return isDark;
+  }
+
+  /* ---- controle deslizante + campo numérico ---- */
+  const sig = x => Number(x.toPrecision(3));
+  const setP = r => r.style.setProperty('--p', ((r.value - r.min) / (r.max - r.min) * 100) + '%');
+  function slider(host, c, onChange){
+    const toS = v => c.log ? Math.round(Math.log(v / c.min) / Math.log(c.max / c.min) * 1000) : v;
+    const fromS = s => c.log ? sig(c.min * Math.pow(c.max / c.min, s / 1000)) : +s;
+    $(host).insertAdjacentHTML('beforeend', `
+      <div class="ctl">
+        <label for="n-${c.id}">${c.label} <span class="unit">${c.unit || ''}${c.hint ? ' · ' + c.hint : ''}</span></label>
+        <div class="pair">
+          <input type="range" id="r-${c.id}" aria-label="${c.label}, controle deslizante" min="${c.log ? 0 : c.min}" max="${c.log ? 1000 : c.max}" step="${c.log ? 1 : c.step}" value="${toS(c.value)}">
+          <input type="number" id="n-${c.id}" inputmode="decimal" min="${c.min}" max="${c.max}" step="${c.step || 'any'}" value="${c.value}">
+        </div>
+      </div>`);
+    const r = $('#r-' + c.id), n = $('#n-' + c.id); setP(r);
+    const api = {
+      value: c.value,
+      set(v){ api.value = v; n.value = v; r.value = toS(v); setP(r); n.removeAttribute('aria-invalid'); onChange(v); }
+    };
+    r.addEventListener('input', () => { api.value = fromS(r.value); n.value = api.value; setP(r); n.removeAttribute('aria-invalid'); onChange(api.value); });
+    n.addEventListener('input', () => {
+      const v = parseFloat(n.value);
+      if (isFinite(v) && v >= c.min && v <= c.max){ api.value = v; r.value = toS(v); setP(r); n.removeAttribute('aria-invalid'); onChange(v); }
+      else n.setAttribute('aria-invalid', 'true');
+    });
+    n.addEventListener('change', () => { let v = parseFloat(n.value); if (!isFinite(v)) v = api.value; api.set(Math.min(Math.max(v, c.min), c.max)); });
+    return api;
+  }
+
+  /* ---- palco 3D ---- */
+  function stage(opts){
+    const o = Object.assign({ theta: 0.6, phi: 1.15, radius: 14, target: [0, 0, 0], minR: 4, maxR: 60, fov: 40 }, opts);
+    const canvas = $('#gl'), el = $('#stage'), labelHost = $('#labels');
+    let renderer;
+    try { renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true }); }
+    catch (e){ $('#nogl').style.display = 'flex'; return null; }
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.setClearColor(0x000000, 0);
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(o.fov, 1, 0.05, 500);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+    scene.add(new THREE.HemisphereLight(0xdfe9ff, 0x445066, 0.35));
+    const key = new THREE.DirectionalLight(0xffffff, 0.9); key.position.set(6, 14, 9); scene.add(key);
+    const orbit = { theta: o.theta, phi: o.phi, radius: o.radius, target: new THREE.Vector3(...o.target) };
+    const goal = { theta: o.theta, phi: o.phi, radius: o.radius, target: new THREE.Vector3(...o.target) };
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const labels = new Map();
+    const api = { THREE, scene, camera, renderer, canvas, orbit, goal, reduced, dark: false, onTick: null, onPick: null };
+
+    function resize(){ const w = el.clientWidth, h = el.clientHeight; if (!w || !h) return; renderer.setSize(w, h, false); camera.aspect = w / h; camera.fov = camera.aspect < 1 ? Math.min(75, o.fov / Math.pow(camera.aspect, 0.7)) : o.fov; camera.updateProjectionMatrix(); }
+    new ResizeObserver(resize).observe(el); resize();
+
+    const zoom = f => { goal.radius = Math.min(Math.max(goal.radius * f, o.minR), o.maxR); };
+    const ptrs = new Map(); let pinch = 0, down = null;
+    canvas.addEventListener('pointerdown', e => { canvas.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); down = { moved: 0, t: performance.now() };
+      if (ptrs.size === 2){ const [a, b] = [...ptrs.values()]; pinch = Math.hypot(a.x - b.x, a.y - b.y); } });
+    canvas.addEventListener('pointermove', e => {
+      const p = ptrs.get(e.pointerId); if (!p) return;
+      const dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY; if (down) down.moved += Math.abs(dx) + Math.abs(dy);
+      if (ptrs.size === 1){ goal.theta -= dx * 0.008; goal.phi = Math.min(Math.max(goal.phi - dy * 0.008, 0.12), Math.PI - 0.12); }
+      else if (ptrs.size === 2){ const [a, b] = [...ptrs.values()], d = Math.hypot(a.x - b.x, a.y - b.y); if (pinch > 0) zoom(pinch / d); pinch = d; }
+    });
+    const up = e => { if (down && down.moved < 6 && performance.now() - down.t < 500 && api.onPick) api.onPick(e); ptrs.delete(e.pointerId); pinch = 0; };
+    canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', e => { ptrs.delete(e.pointerId); pinch = 0; });
+    canvas.addEventListener('wheel', e => { e.preventDefault(); zoom(Math.exp(e.deltaY * 0.0012)); }, { passive: false });
+    canvas.addEventListener('keydown', e => {
+      const k = e.key, s = 0.09; let used = true;
+      if (k === 'ArrowLeft') goal.theta -= s; else if (k === 'ArrowRight') goal.theta += s;
+      else if (k === 'ArrowUp') goal.phi = Math.max(goal.phi - s, 0.12); else if (k === 'ArrowDown') goal.phi = Math.min(goal.phi + s, Math.PI - 0.12);
+      else if (k === '+' || k === '=') zoom(0.9); else if (k === '-' || k === '_') zoom(1.1); else used = false;
+      if (used) e.preventDefault();
+    });
+    api.resetCamera = () => { goal.theta = o.theta; goal.phi = o.phi; goal.radius = o.radius; goal.target.set(...o.target); };
+
+    api.label = (id, cls) => { const d = document.createElement('div'); d.className = 'lbl ' + (cls || ''); labelHost.appendChild(d); labels.set(id, d); return d; };
+    const v3 = new THREE.Vector3();
+    api.place = (id, pos, show, text, keep) => {
+      const node = labels.get(id); if (!node) return;
+      if (!show || (el.clientWidth < 560 && !keep)){ node.style.display = 'none'; return; }
+      v3.copy(pos).project(camera);
+      if (v3.z > 1){ node.style.display = 'none'; return; }
+      if (text !== undefined && node.textContent !== text) node.textContent = text;
+      node.style.display = 'block';
+      const px = (v3.x * 0.5 + 0.5) * el.clientWidth, py = (-v3.y * 0.5 + 0.5) * el.clientHeight;
+      node.style.transform = `translate(${Math.max(4, Math.min(px + 8, el.clientWidth - node.offsetWidth - 4))}px,${py}px) translateY(-50%)`;
+    };
+    api.hideLabels = () => labels.forEach(l => { l.style.display = 'none'; });
+
+    let last = performance.now(), clock = 0;
+    function loop(now){
+      requestAnimationFrame(loop);
+      if (document.hidden || !el.clientWidth) return;
+      const dt = Math.min(0.05, (now - last) / 1000); last = now; clock += dt;
+      const k = 1 - Math.exp(-dt * 9);
+      orbit.theta += (goal.theta - orbit.theta) * k; orbit.phi += (goal.phi - orbit.phi) * k; orbit.radius += (goal.radius - orbit.radius) * k; orbit.target.lerp(goal.target, k);
+      const sp = Math.sin(orbit.phi);
+      camera.position.set(orbit.target.x + orbit.radius * sp * Math.sin(orbit.theta), orbit.target.y + orbit.radius * Math.cos(orbit.phi), orbit.target.z + orbit.radius * sp * Math.cos(orbit.theta));
+      camera.lookAt(orbit.target);
+      api.hideLabels();
+      if (api.onTick) api.onTick(dt, clock);
+      renderer.render(scene, camera);
+      if (api.onLabels) api.onLabels();
+    }
+    requestAnimationFrame(loop);
+    return api;
+  }
+
+  return { $, $$, num, sci, badge, row, TYPES, theme, slider, stage, setP };
+})();
+
+</script>
+<script src="videos.js"></script>
+<script>
+Lab.theme();
+const KEY = 'cherenkov';
+(function video(){
+  const slot = document.getElementById('video-slot'), url = ((window.VIDEOS || {})[KEY] || '').trim();
+  const m = url.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([\w-]{11})/);
+  if (m){
+    slot.innerHTML = '<div class="frame"><iframe src="https://www.youtube-nocookie.com/embed/' + m[1] + '" title="Videoaula: Por que a água de um reator brilha azul?" loading="lazy" allow="accelerometer; encrypted-media; picture-in-picture" allowfullscreen></iframe></div>';
+  } else if (/^https?:\/\//.test(url)){
+    slot.innerHTML = '<p>Assista à videoaula em outra aba:</p><a class="btn pri big" href="' + url + '" target="_blank" rel="noopener">Abrir a videoaula</a>';
+  } else {
+    slot.innerHTML = '<div class="soon"><p><strong>Videoaula em breve.</strong></p><p>Enquanto isso, leia o texto abaixo e experimente o simulador.</p></div>';
+  }
+})();
+document.querySelectorAll('.q').forEach(q => {
+  q.addEventListener('change', () => {
+    const v = +q.querySelector('input:checked').value, c = +q.dataset.c, fb = q.querySelector('.fb');
+    fb.className = 'fb ' + (v === c ? 'ok' : 'no');
+    fb.textContent = v === c ? 'Correto! ' + q.dataset.w : 'Ainda não. Tente outra opção.';
+  });
+});
+</script>
+</body>
+</html>
