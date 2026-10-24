@@ -208,6 +208,30 @@ footer{padding:1rem;text-align:center;color:var(--muted);font-size:.76rem}
   .kpi .n{font-size:1.05rem}
 }
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.chip,.seg span,.fade{transition:none}}
+/* ===== celular: palco maior e sobreposições enxutas ===== */
+@media (max-width:960px){
+  header.top{padding:.45rem .7rem;gap:.35rem .6rem;margin:.4rem .4rem 0}
+  header.top .logo{width:22px;height:22px}
+  header.top .logo::after{inset:6px}
+  header.top h1{font-size:.95rem}
+  header.top p{display:none}
+  .pill-note{font-size:.62rem;padding:.1rem .45rem}
+  .chip{font-size:.7rem;padding:.28rem .6rem}
+  .stage{height:54vh!important;min-height:300px!important}
+  .hint{display:none!important}
+  .stamp{font-size:.58rem!important;padding:.2rem .5rem!important;max-width:calc(100% - 6.2rem)!important;line-height:1.25;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  .tools{right:.4rem!important;top:.4rem!important;gap:.25rem!important;flex-direction:column;align-items:flex-end}
+  .tools .chip{padding:.22rem .5rem!important;font-size:.64rem!important}
+  .legend{left:.4rem!important;bottom:.4rem!important;padding:.3rem .5rem!important;width:min(200px,62%)!important;font-size:.58rem!important}
+  .legend .ttl{margin-bottom:.15rem;font-size:.62rem}
+  .legend .ttl small,.legend dl{display:none}
+  .lbl{font-size:.58rem;padding:.04rem .3rem}
+  .modes{padding:.2rem;border-radius:14px}
+  .modes button{font-size:.7rem;padding:.4rem .25rem}
+  .modes .k{display:none}
+  .modes button small{display:none}
+}
+
 </style>
 </head>
 <body>
@@ -686,7 +710,7 @@ const Scene3D = (() => {
   const v3 = new V();
   function place(id, pos, show, text){
     const node = labels.get(id); if (!node) return;
-    if (!show){ node.style.display = 'none'; return; }
+    if (!show || (stage.clientWidth < 560 && !node.classList.contains('min') && !node.classList.contains('probe'))){ node.style.display = 'none'; return; }
     v3.copy(pos).project(camera);
     if (v3.z > 1){ node.style.display = 'none'; return; }
     if (text !== undefined && node.textContent !== text) node.textContent = text;
@@ -1251,7 +1275,7 @@ const Scene3D = (() => {
     const w = stage.clientWidth, h = stage.clientHeight;
     if (!w || !h) return;
     renderer.setSize(w, h, false);
-    camera.aspect = w / h; camera.updateProjectionMatrix();
+    camera.aspect = w / h; camera.fov = camera.aspect < 1 ? Math.min(75, 40 / Math.pow(camera.aspect, 0.7)) : 40; camera.updateProjectionMatrix();
   }
 
   const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();

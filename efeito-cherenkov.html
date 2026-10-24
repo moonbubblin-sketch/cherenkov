@@ -159,6 +159,30 @@ footer{padding:1rem;text-align:center;color:var(--muted);font-size:.76rem}
 }
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.chip{transition:none}}
 
+/* ===== celular: palco maior e sobreposições enxutas ===== */
+@media (max-width:960px){
+  header.top{padding:.45rem .7rem;gap:.35rem .6rem;margin:.4rem .4rem 0}
+  header.top .logo{width:22px;height:22px}
+  header.top .logo::after{inset:6px}
+  header.top h1{font-size:.95rem}
+  header.top p{display:none}
+  .pill-note{font-size:.62rem;padding:.1rem .45rem}
+  .chip{font-size:.7rem;padding:.28rem .6rem}
+  .stage{height:54vh!important;min-height:300px!important}
+  .hint{display:none!important}
+  .stamp{font-size:.58rem!important;padding:.2rem .5rem!important;max-width:calc(100% - 6.2rem)!important;line-height:1.25;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  .tools{right:.4rem!important;top:.4rem!important;gap:.25rem!important;flex-direction:column;align-items:flex-end}
+  .tools .chip{padding:.22rem .5rem!important;font-size:.64rem!important}
+  .legend{left:.4rem!important;bottom:.4rem!important;padding:.3rem .5rem!important;width:min(200px,62%)!important;font-size:.58rem!important}
+  .legend .ttl{margin-bottom:.15rem;font-size:.62rem}
+  .legend .ttl small,.legend dl{display:none}
+  .lbl{font-size:.58rem;padding:.04rem .3rem}
+  .modes{padding:.2rem;border-radius:14px}
+  .modes button{font-size:.7rem;padding:.4rem .25rem}
+  .modes .k{display:none}
+  .modes button small{display:none}
+}
+
 </style>
 <style>
 .stagewrap{display:flex;flex-direction:column;gap:.6rem}
@@ -371,7 +395,7 @@ const Lab = (() => {
     const labels = new Map();
     const api = { THREE, scene, camera, renderer, canvas, orbit, goal, reduced, dark: false, onTick: null, onPick: null };
 
-    function resize(){ const w = el.clientWidth, h = el.clientHeight; if (!w || !h) return; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+    function resize(){ const w = el.clientWidth, h = el.clientHeight; if (!w || !h) return; renderer.setSize(w, h, false); camera.aspect = w / h; camera.fov = camera.aspect < 1 ? Math.min(75, o.fov / Math.pow(camera.aspect, 0.7)) : o.fov; camera.updateProjectionMatrix(); }
     new ResizeObserver(resize).observe(el); resize();
 
     const zoom = f => { goal.radius = Math.min(Math.max(goal.radius * f, o.minR), o.maxR); };
@@ -398,9 +422,9 @@ const Lab = (() => {
 
     api.label = (id, cls) => { const d = document.createElement('div'); d.className = 'lbl ' + (cls || ''); labelHost.appendChild(d); labels.set(id, d); return d; };
     const v3 = new THREE.Vector3();
-    api.place = (id, pos, show, text) => {
+    api.place = (id, pos, show, text, keep) => {
       const node = labels.get(id); if (!node) return;
-      if (!show){ node.style.display = 'none'; return; }
+      if (!show || (el.clientWidth < 560 && !keep)){ node.style.display = 'none'; return; }
       v3.copy(pos).project(camera);
       if (v3.z > 1){ node.style.display = 'none'; return; }
       if (text !== undefined && node.textContent !== text) node.textContent = text;
@@ -625,7 +649,7 @@ if (S){
     }
     function labels(){
       S.place('l-e', electron.position.clone().add(new V(0, 0.9, 0)), true, `e⁻  β = ${Lab.num(res.beta, res.beta > 0.99 ? 5 : 3)}`);
-      S.place('l-th', new V(xe + 2.6, 0.9, 0), res.above && state.ray, `θ = ${Lab.num(res.theta * 180 / Math.PI, 1)}°`);
+      S.place('l-th', new V(xe + 2.6, 0.9, 0), res.above && state.ray, `θ = ${Lab.num(res.theta * 180 / Math.PI, 1)}°`, true);
       S.place('l-det', new V(XD, 4.2, 0), true, 'detector');
     }
     return { group, theme, tick, labels, restart, applyMedium: () => { medMat.color.set(state.medium.color); medMat.opacity = state.medium.op * (S.dark ? 1 : 1.6); }, ids: ['l-e', 'l-th', 'l-det'] };
@@ -684,7 +708,7 @@ if (S){
     function labels(){
       const Lv = Math.min(trk.length, TL - 8);
       S.place('l-bg', new V(-1, -2.2, 0), true, 'entrada do feixe');
-      S.place('l-bl', new V(Lv, 1.4, 0), trk.length > 0, trk.length > TL - 8 ? `brilho segue além do tanque (${Lab.num(trk.length, 1)} cm)` : `fim do brilho · ${Lab.num(trk.length, 1)} cm`);
+      S.place('l-bl', new V(Lv, 1.4, 0), trk.length > 0, trk.length > TL - 8 ? `brilho segue além do tanque (${Lab.num(trk.length, 1)} cm)` : `fim do brilho · ${Lab.num(trk.length, 1)} cm`, true);
       S.place('l-bt', new V(0, -TW / 2 + 0.5, TW / 2), true, 'grade de 2 cm no fundo');
     }
     return { group, tick, labels, layout, theme(){}, ids: ['l-bg', 'l-bl', 'l-bt'] };
