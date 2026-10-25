@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Laboratório de irradiação em VR — Cherenkov</title>
-<meta name="description" content="Jogo em realidade virtual: regule o acelerador de elétrons e descubra como irradiar um lote de grãos até o último grão. Funciona no Meta Quest e também na tela do computador.">
+<title>Fábrica de irradiação em VR — Cherenkov</title>
+<meta name="description" content="Visita em realidade virtual a uma fábrica de irradiação de grãos: silo, esteira, sala blindada com acelerador de elétrons, sala de controle e expedição. Funciona no Meta Quest e na tela do computador.">
 <style>
-:root{--bg:#070b16;--ink:#e8eefc;--muted:#9fb0d0;--accent:#4db8ff;--ok:#3fe08f;--warn:#ffb347}
+:root{--bg:#070b16;--ink:#e8eefc;--muted:#9fb0d0;--accent:#4db8ff}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden}
 canvas{display:block;width:100%;height:100%;touch-action:none}
@@ -16,7 +16,7 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 .pill{pointer-events:auto;background:rgba(10,16,32,.78);border:1px solid rgba(140,170,230,.28);border-radius:999px;padding:.4rem .85rem;color:var(--ink);text-decoration:none;font-weight:600;font-size:.85rem;backdrop-filter:blur(8px)}
 .pill.pri{background:linear-gradient(90deg,#2b7cff,#4db8ff);color:#04101f;border:0;cursor:pointer;font-size:.95rem;padding:.6rem 1.2rem}
 .pill.pri[disabled]{opacity:.45;cursor:not-allowed}
-.help{pointer-events:none;max-width:34rem;background:rgba(10,16,32,.78);border:1px solid rgba(140,170,230,.22);border-radius:14px;padding:.55rem .8rem;font-size:.82rem;color:var(--muted)}
+.help{pointer-events:none;max-width:36rem;background:rgba(10,16,32,.78);border:1px solid rgba(140,170,230,.22);border-radius:14px;padding:.55rem .8rem;font-size:.82rem;color:var(--muted)}
 .help b{color:var(--ink)}
 #msg{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:#070b16;color:var(--ink);text-align:center;padding:2rem;z-index:5}
 #msg.on{display:flex}
@@ -24,7 +24,7 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 </style>
 </head>
 <body>
-<canvas id="c" aria-label="Laboratório de irradiação em 3D"></canvas>
+<canvas id="c" aria-label="Fábrica de irradiação em 3D"></canvas>
 <div class="hud top">
   <a class="pill" href="index.html">← Cherenkov</a>
   <a class="pill" href="graos.html">Simulador de grãos</a>
@@ -32,9 +32,9 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
   <button class="pill pri" id="vr" type="button" disabled>Verificando VR…</button>
 </div>
 <div class="hud bot">
-  <div class="help" id="help"><b>Modo tela:</b> arraste para olhar · clique nos botões do painel · clique no chão para andar · roda do mouse para aproximar. <b>No Quest:</b> aponte o controle, aperte o gatilho; joystick gira.</div>
+  <div class="help" id="help"><b>Modo tela:</b> arraste para olhar · clique nos botões e nos círculos numerados do chão · roda do mouse para andar. <b>No Quest:</b> aponte o controle e aperte o gatilho (botão = aperta, chão = anda); joystick gira.</div>
 </div>
-<div id="msg"><div><h2>Não foi possível iniciar o 3D</h2><p id="msgt">O navegador não conseguiu criar a cena.</p></div></div>
+<div id="msg"><div><h2>Não foi possível iniciar o 3D</h2><p>O navegador não conseguiu criar a cena.</p></div></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>window.THREE||document.write('<script src="assets/three.min.js"><\/script>')</script>
@@ -45,11 +45,12 @@ if (!window.THREE){ document.getElementById('msg').classList.add('on'); return; 
 
 /* ============================================================
    FÍSICA (a mesma do simulador de grãos)
-   Alcance: NIST ESTAR, água líquida, CSDA (referência).
-   Densidade a granel do trigo: SUPOSIÇÃO (0,78 g/cm³).
+   Alcance do elétron: NIST ESTAR, água líquida, CSDA (referência).
+   Densidade do trigo a granel: SUPOSIÇÃO (0,78 g/cm³).
    Forma da curva de dose em profundidade: ILUSTRATIVA.
+   Dose por lado (100 Gy) e meta (60 Gy): valores de DEMONSTRAÇÃO.
    ============================================================ */
-const RHO = 0.78;
+const RHO = 0.78, DS = 100, ALVO = 60;
 const CSDA = [[0.5,0.1766],[0.55,0.2013],[0.6,0.2265],[0.7,0.2778],[0.8,0.3302],[0.9,0.3832],[1,0.4367],
   [1.25,0.5717],[1.5,0.7075],[1.75,0.8432],[2,0.9785],[2.5,1.247],[3,1.514],[3.5,1.777],
   [4,2.037],[4.5,2.295],[5,2.550],[5.5,2.802],[6,3.052],[7,3.545],[8,4.030],[9,4.506],[10,4.975]];
@@ -68,14 +69,12 @@ function rel(z, E){
   return x <= xm ? 1 + (pk - 1) * Math.sin(Math.PI / 2 * x / xm)
                  : pk * Math.pow(Math.cos(Math.PI / 2 * (x - xm) / (1 - xm)), 1.3);
 }
-const doseAt = (z, T, E, sides, Ds) => Ds * (rel(z, E) + (sides === 2 ? rel(T - z, E) : 0));
-function stats(T, E, sides, Ds){
+const doseAt = (z, T, E, sides) => DS * (rel(z, E) + (sides === 2 ? rel(T - z, E) : 0));
+function stats(T, E, sides){
   let mn = Infinity, mx = 0;
-  for (let i = 0; i <= 160; i++){ const d = doseAt(T * i / 160, T, E, sides, Ds); if (d < mn) mn = d; if (d > mx) mx = d; }
+  for (let i = 0; i <= 160; i++){ const d = doseAt(T * i / 160, T, E, sides); if (d < mn) mn = d; if (d > mx) mx = d; }
   return { mn, mx, dur: mn > 1e-9 ? mx / mn : null };
 }
-
-/* Paleta viridis (a mesma do simulador de grãos) */
 const STOPS = [[0,[68,1,84]],[.125,[72,40,120]],[.25,[62,73,137]],[.375,[49,104,142]],[.5,[38,130,142]],[.625,[31,158,137]],[.75,[53,183,121]],[.875,[110,206,88]],[1,[253,231,37]]];
 function pal(t){
   t = Math.min(Math.max(t, 0), 1);
@@ -85,38 +84,17 @@ function pal(t){
   }
   return STOPS[STOPS.length-1][1].map(v => v / 255);
 }
-const nf1 = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 });
-const nf2 = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 });
+const nf1 = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 }), nf2 = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 });
 const f1 = x => nf1.format(x), f2 = x => nf2.format(x);
-
-/* ============================================================
-   FASES (metas e doses por fase são do JOGO, não de norma)
-   ============================================================ */
-const LEVELS = [
-  { nome: 'Cobrir o lote',      T: 4,  Ds: 100, alvo: 60, durMax: 2.5, texto: 'Um lote de 4 cm de grãos. Todo grão precisa receber ao menos 60 Gy, e a dose não pode ficar muito desigual.' },
-  { nome: 'O lote grosso',      T: 8,  Ds: 100, alvo: 60, durMax: 2.5, texto: 'Agora são 8 cm. O elétron tem alcance limitado: será que um lado só dá conta?' },
-  { nome: 'No limite do feixe', T: 10, Ds: 100, alvo: 60, durMax: 2.5, texto: 'O lote tem 10 cm, quase o limite do acelerador. Cada MeV importa.' },
-  { nome: 'Modo livre',         T: 6,  Ds: 100, alvo: 60, durMax: 2.5, free: true, texto: 'Sem metas. Mude energia, lados e espessura e observe onde os insetos sobrevivem.' }
-];
-LEVELS.forEach(L => {                       // menor "gasto de energia" (MeV × lados) que cumpre a fase
-  if (L.free) return;
-  let best = Infinity;
-  for (let E = 1; E <= 10; E++) for (const s of [1, 2]){
-    const st = stats(L.T, E, s, L.Ds);
-    if (st.mn >= L.alvo && st.dur <= L.durMax) best = Math.min(best, E * s);
-  }
-  L.best = best;
-});
 
 /* ============================================================
    ESTADO
    ============================================================ */
-const S = { lvl: 0, E: 5, sides: 1, T: LEVELS[0].T, phase: 'ready', p: 0, result: null, stars: -1, msg: '' };
-const DUR_RUN = 2.8;                        // duração da animação (s)
-const lvl = () => LEVELS[S.lvl];
+const S = { E: 8, sides: 2, T: 6, beam: true, belt: true, sound: true };
+let ST = stats(S.T, S.E, S.sides);
 
 /* ============================================================
-   CENA
+   CENA BASE
    ============================================================ */
 const cv = document.getElementById('c');
 let renderer;
@@ -126,75 +104,147 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.xr.enabled = true;
 try { renderer.xr.setReferenceSpaceType('local-floor'); } catch (e){}
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0a0f1d);
-scene.fog = new THREE.Fog(0x0a0f1d, 9, 22);
-const camera = new THREE.PerspectiveCamera(65, 1, 0.05, 60);
+scene.background = new THREE.Color(0x0c1220);
+scene.fog = new THREE.Fog(0x0c1220, 16, 44);
+const camera = new THREE.PerspectiveCamera(65, 1, 0.05, 80);
 const dolly = new THREE.Group(); dolly.add(camera); scene.add(dolly);
-const START_Z = 1.9;
-dolly.position.set(0, 0, 2.8);
-let yaw = 0, pitch = -0.28;
+const SPAWN = new THREE.Vector3(1.0, 0, 5.5);
+dolly.position.set(1.0, 0, 7.0);
+let yaw = 0, pitch = -0.05;
 camera.position.set(0, 1.6, 0);
 
-scene.add(new THREE.HemisphereLight(0xcfe0ff, 0x1a2238, 0.9));
-const sun = new THREE.DirectionalLight(0xffffff, 0.55); sun.position.set(2, 5, 3); scene.add(sun);
-const lampTop = new THREE.PointLight(0x7fd0ff, 0.7, 6); lampTop.position.set(0, 2.2, 0.3); scene.add(lampTop);
+scene.add(new THREE.HemisphereLight(0xdfe8ff, 0x2a3350, 0.85));
+const sun = new THREE.DirectionalLight(0xffffff, 0.35); sun.position.set(3, 8, 5); scene.add(sun);
+const lampCell = new THREE.PointLight(0x7fd0ff, 0.9, 7); lampCell.position.set(1, 3.2, 0); scene.add(lampCell);
+const lampCtl = new THREE.PointLight(0xfff1d6, 0.7, 9); lampCtl.position.set(1, 3.0, 5); scene.add(lampCtl);
 
-const std = (c, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.85, metalness: 0.05 }, o));
+const std = (c, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.8, metalness: 0.1 }, o));
 const lam = (c, o = {}) => new THREE.MeshLambertMaterial(Object.assign({ color: c }, o));
+const bas = (c, o = {}) => new THREE.MeshBasicMaterial(Object.assign({ color: c }, o));
+function box(w, h, d, mat, x, y, z, parent){ const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); (parent || scene).add(m); return m; }
+function cyl(rt, rb, h, mat, x, y, z, seg, parent){ const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg || 24), mat); m.position.set(x, y, z); (parent || scene).add(m); return m; }
 
-/* chão, marcação de segurança e blindagens */
-const FLOOR_R = 5.6;
-const floor = new THREE.Mesh(new THREE.CircleGeometry(FLOOR_R + 1, 64), lam(0x182034));
-floor.rotation.x = -Math.PI / 2; scene.add(floor);
-const grid = new THREE.GridHelper(FLOOR_R * 2, 28, 0x2f4a7a, 0x1d2a45); grid.position.y = 0.01; scene.add(grid);
-const safety = new THREE.Mesh(new THREE.RingGeometry(1.08, 1.2, 64), new THREE.MeshBasicMaterial({ color: 0xffc233, transparent: true, opacity: 0.55, side: THREE.DoubleSide }));
-safety.rotation.x = -Math.PI / 2; safety.position.y = 0.02; scene.add(safety);
-[[-3.4,-3.6,2.4,3.2,1],[0,-4.2,3.6,3.6,1],[3.4,-3.6,2.4,3.2,1]].forEach(([x,z,w,h]) => {
-  const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.9), std(0x6c7587)); b.position.set(x, h / 2, z); scene.add(b);
-});
-const roofLight = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.06, 0.5), new THREE.MeshBasicMaterial({ color: 0x9be0ff })); roofLight.position.set(0, 3.0, 0); scene.add(roofLight);
-
-/* mesa de vidro com o lote */
-const TABLE_Y = 0.86;
-const table = new THREE.Group(); scene.add(table);
-const glass = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.04, 0.85), new THREE.MeshStandardMaterial({ color: 0x9fd0ff, transparent: true, opacity: 0.28, roughness: 0.1, metalness: 0.2 }));
-glass.position.y = TABLE_Y - 0.02; table.add(glass);
-[[-0.58,-0.38],[0.58,-0.38],[-0.58,0.38],[0.58,0.38]].forEach(([x,z]) => {
-  const l = new THREE.Mesh(new THREE.BoxGeometry(0.05, TABLE_Y - 0.04, 0.05), std(0x39445e)); l.position.set(x, (TABLE_Y - 0.04) / 2, z); table.add(l);
-});
-
-/* cabeças do acelerador (de cima e de baixo) */
-function makeHead(){
-  const g = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.17, 0.34, 24), std(0x54627f, { metalness: 0.4, roughness: 0.5 })); body.position.y = 0.2; g.add(body);
-  const nozzle = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.12, 24, 1, true), std(0x9aa7c2, { metalness: 0.5, roughness: 0.4, side: THREE.DoubleSide })); nozzle.rotation.x = Math.PI; nozzle.position.y = 0.0; g.add(nozzle);
-  const glow = new THREE.Mesh(new THREE.CircleGeometry(0.075, 24), new THREE.MeshBasicMaterial({ color: 0x4db8ff, transparent: true, opacity: 0.0 })); glow.rotation.x = Math.PI / 2; glow.position.y = -0.05; g.add(glow);
-  g.userData.glow = glow;
-  return g;
+function concreteTex(){
+  const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d');
+  g.fillStyle = '#8c95a6'; g.fillRect(0, 0, 256, 256);
+  for (let i = 0; i < 2600; i++){ const v = 120 + Math.random() * 60; g.fillStyle = 'rgba(' + v + ',' + (v + 4) + ',' + (v + 14) + ',0.35)'; g.fillRect(Math.random() * 256, Math.random() * 256, 2, 2); }
+  g.strokeStyle = 'rgba(40,48,66,0.35)'; g.lineWidth = 2; for (let y = 0; y <= 256; y += 64){ g.beginPath(); g.moveTo(0, y); g.lineTo(256, y); g.stroke(); }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2, 1); return t;
 }
-const headTop = makeHead(); scene.add(headTop);
-const headBot = makeHead(); headBot.rotation.x = Math.PI; scene.add(headBot);
-headBot.position.set(0, TABLE_Y - 0.07, 0);
+const concrete = lam(0xffffff, { map: concreteTex() });
+const floorTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d');
+  g.fillStyle = '#566078'; g.fillRect(0, 0, 256, 256); g.strokeStyle = 'rgba(20,28,48,0.55)'; g.lineWidth = 3; g.strokeRect(1, 1, 254, 254);
+  for (let i = 0; i < 1500; i++){ g.fillStyle = 'rgba(255,255,255,' + Math.random() * 0.05 + ')'; g.fillRect(Math.random() * 256, Math.random() * 256, 2, 2); }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(14, 9); return t; })();
 
-/* lote de grãos (instâncias) */
+/* --- galpão --- */
+const HALL = { x0: -13, x1: 15, z0: -8, z1: 8.5 };
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(HALL.x1 - HALL.x0, HALL.z1 - HALL.z0), lam(0xffffff, { map: floorTex }));
+floor.rotation.x = -Math.PI / 2; floor.position.set((HALL.x0 + HALL.x1) / 2, 0, (HALL.z0 + HALL.z1) / 2); scene.add(floor);
+const wallMat = lam(0x7d889f);
+box(HALL.x1 - HALL.x0, 7, 0.3, wallMat, (HALL.x0 + HALL.x1) / 2, 3.5, HALL.z0);
+box(HALL.x1 - HALL.x0, 7, 0.3, wallMat, (HALL.x0 + HALL.x1) / 2, 3.5, HALL.z1);
+box(0.3, 7, HALL.z1 - HALL.z0, wallMat, HALL.x0, 3.5, (HALL.z0 + HALL.z1) / 2);
+box(0.3, 7, HALL.z1 - HALL.z0, wallMat, HALL.x1, 3.5, (HALL.z0 + HALL.z1) / 2);
+for (let x = -11; x <= 13; x += 4){ box(0.35, 0.35, HALL.z1 - HALL.z0, lam(0x434d66), x, 6.8, (HALL.z0 + HALL.z1) / 2); box(1.4, 0.08, 0.3, bas(0xeaf3ff), x, 6.55, -2); box(1.4, 0.08, 0.3, bas(0xeaf3ff), x, 6.55, 4); }
+// faixas de segurança amarelas em volta da sala blindada
+box(8.4, 0.01, 0.12, bas(0xffc233), 1, 0.012, 3.55); box(8.4, 0.01, 0.12, bas(0xffc233), 1, 0.012, -3.55);
+box(0.12, 0.01, 7.1, bas(0xffc233), -3.2, 0.012, 0); box(0.12, 0.01, 7.1, bas(0xffc233), 5.2, 0.012, 0);
+
+/* --- esteira --- */
+const BELT_Y = 0.95, BELT_X0 = -8.6, BELT_X1 = 12.2, BELT_V = 0.55;
+const beltTex = (() => { const c = document.createElement('canvas'); c.width = 128; c.height = 64; const g = c.getContext('2d');
+  g.fillStyle = '#2b3042'; g.fillRect(0, 0, 128, 64); g.fillStyle = '#3b4258'; for (let x = 0; x < 128; x += 16) g.fillRect(x, 0, 8, 64);
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set((BELT_X1 - BELT_X0) / 0.4, 1); return t; })();
+const beltTop = new THREE.Mesh(new THREE.PlaneGeometry(BELT_X1 - BELT_X0, 0.9), lam(0xffffff, { map: beltTex }));
+beltTop.rotation.x = -Math.PI / 2; beltTop.position.set((BELT_X0 + BELT_X1) / 2, BELT_Y, 0); scene.add(beltTop);
+box(BELT_X1 - BELT_X0, 0.16, 1.0, lam(0x39425a), (BELT_X0 + BELT_X1) / 2, BELT_Y - 0.1, 0);
+for (let x = BELT_X0 + 0.3; x < BELT_X1; x += 1.7){ box(0.08, BELT_Y - 0.15, 0.08, lam(0x39425a), x, (BELT_Y - 0.15) / 2, -0.42); box(0.08, BELT_Y - 0.15, 0.08, lam(0x39425a), x, (BELT_Y - 0.15) / 2, 0.42); }
+
+/* --- silo (demonstração) --- */
+const SILO = { x: -9.6, z: -3.0 };
+cyl(1.3, 1.3, 6, std(0xb9c2d4, { metalness: 0.4, roughness: 0.5 }), SILO.x, 4.2, SILO.z, 32);
+cyl(1.3, 0.12, 1.7, std(0xa7b1c6, { metalness: 0.4, roughness: 0.5 }), SILO.x, 1.0 + 0.0, SILO.z, 32);
+box(2.2, 0.16, 0.16, lam(0x8e99b0), SILO.x + 1.1, 1.9, SILO.z + 0.0);
+box(0.16, 0.16, 3.0, lam(0x8e99b0), SILO.x + 2.2, 1.9, SILO.z + 1.5);
+box(1.2, 0.16, 0.16, lam(0x8e99b0), SILO.x + 2.7, 1.9, SILO.z + 3.0);
+cyl(0.09, 0.09, 1.1, lam(0x8e99b0), -8.0, 1.35, 0.0, 12);
+cyl(0.5, 0.5, 0.35, lam(0x8e99b0), -8.0, 1.95, 0.0, 16);
+
+/* --- sala blindada (a célula) --- */
+const CELL = { x0: -2.7, x1: 4.7, z0: -3.1, z1: 3.1, ix0: -1.8, ix1: 3.8, iz0: -2.2, iz1: 2.2, H: 3.7, cx: 1.0 };
+function wallWithBeltGap(x){
+  const t = 0.9, zl = CELL.z1 - 0.55;
+  box(t, CELL.H, zl, concrete, x, CELL.H / 2, (0.55 + CELL.z1) / 2);
+  box(t, CELL.H, zl, concrete, x, CELL.H / 2, -(0.55 + CELL.z1) / 2);
+  box(t, CELL.H - 1.5, 1.1, concrete, x, 1.5 + (CELL.H - 1.5) / 2, 0);
+  box(t, 0.35, 1.1, concrete, x, 0.175, 0);
+}
+wallWithBeltGap(-2.25); wallWithBeltGap(4.25);
+box(CELL.x1 - CELL.x0 - 1.8, CELL.H, 0.9, concrete, CELL.cx, CELL.H / 2, -2.65);
+box(2.1, CELL.H, 0.9, concrete, -1.65, CELL.H / 2, 2.65);
+box(2.1, CELL.H, 0.9, concrete, 3.65, CELL.H / 2, 2.65);
+box(3.2, 1.2, 0.9, concrete, 1.0, 0.6, 2.65);
+box(3.2, CELL.H - 3.1, 0.9, concrete, 1.0, 3.1 + (CELL.H - 3.1) / 2, 2.65);
+box(CELL.x1 - CELL.x0, 0.5, CELL.z1 - CELL.z0, concrete, CELL.cx, CELL.H + 0.25, 0);
+const glassPane = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.9), new THREE.MeshStandardMaterial({ color: 0x9fe0ff, transparent: true, opacity: 0.16, roughness: 0.05, metalness: 0.3, depthWrite: false }));
+glassPane.position.set(1.0, 2.15, 2.4); scene.add(glassPane);
+const warnLamp = new THREE.Mesh(new THREE.SphereGeometry(0.18, 16, 12), new THREE.MeshBasicMaterial({ color: 0xff2a1a })); warnLamp.position.set(-0.9, 3.4, 3.25); scene.add(warnLamp);
+const warnLight = new THREE.PointLight(0xff3a22, 0, 6); warnLight.position.copy(warnLamp.position); scene.add(warnLight);
+
+/* --- interior: acelerador --- */
+const accel = new THREE.Group(); accel.position.set(CELL.cx, 0, 0); scene.add(accel);
+const metal = std(0x6d7a97, { metalness: 0.5, roughness: 0.4 });
+cyl(0.34, 0.34, 1.35, metal, 0, 3.0, 0, 28, accel);
+cyl(0.42, 0.42, 0.18, std(0x2e3a58, { metalness: 0.5 }), 0, 2.3, 0, 28, accel);
+box(0.9, 0.5, 0.7, std(0x39466a, { metalness: 0.5, roughness: 0.4 }), 0, 2.0, 0, accel);
+const hornMat = std(0x9aa7c2, { metalness: 0.6, roughness: 0.35, side: THREE.DoubleSide });
+const horn = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.5, 0.42, 4, 1, true), hornMat);
+horn.rotation.y = Math.PI / 4; horn.scale.set(0.45, 1, 1.3); horn.position.set(0, 1.56, 0); accel.add(horn);
+const hornBot = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.25, 0.42, 4, 1, true), hornMat);
+hornBot.rotation.y = Math.PI / 4; hornBot.scale.set(0.45, 1, 1.3); hornBot.position.set(0, 0.5, 0); accel.add(hornBot);
+const baseBot = box(0.5, 0.3, 0.5, std(0x39466a, { metalness: 0.5 }), 0, 0.17, 0, accel);
+const hornGlow = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.85), bas(0x4db8ff, { transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }));
+hornGlow.rotation.x = Math.PI / 2; hornGlow.position.set(0, 1.35, 0); accel.add(hornGlow);
+
+/* --- bandejas na esteira --- */
+const TRAY_W = 1.1, TRAY_D = 0.72, TRAY_SP = 2.0, NTRAY = 11;
+const trays = [], trayBodyMat = lam(0x7c869c), cBeam = new THREE.Color(0x9fe6ff);
+for (let i = 0; i < NTRAY; i++){
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(TRAY_W, 1, TRAY_D), trayBodyMat); g.add(body);
+  const top = new THREE.Mesh(new THREE.BoxGeometry(TRAY_W - 0.1, 0.02, TRAY_D - 0.1), lam(0xc79a4a)); g.add(top);
+  const flag = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1), bas(0x5c657c)); g.add(flag);
+  g.userData = { body, top, flag, x: BELT_X0 + i * TRAY_SP, treated: false, ok: false };
+  scene.add(g); trays.push(g);
+}
+function sizeTrays(){
+  const h = Math.max(0.05, S.T / 100 + 0.02);
+  trays.forEach(g => { const u = g.userData; u.body.scale.y = h; u.body.position.y = h / 2; u.top.position.y = h + 0.005; u.flag.position.set(TRAY_W / 2 - 0.1, h + 0.12, TRAY_D / 2 - 0.1); });
+}
+
+/* --- expedição: palete com bandejas tratadas --- */
+const PALLET = { x: 11.4, z: -1.5 };
+box(1.3, 0.12, 1.1, lam(0x8a6a3c), PALLET.x, 0.06, PALLET.z);
+for (let k = 0; k < 4; k++){ box(1.1, 0.16, 0.72, lam(0x7c869c), PALLET.x, 0.2 + k * 0.17, PALLET.z); box(1.0, 0.03, 0.62, lam(0x3fa573), PALLET.x, 0.29 + k * 0.17, PALLET.z); }
+
+/* --- sala de controle: mesa --- */
+box(4.2, 0.9, 0.9, lam(0x2c3550), 1.0, 0.45, 4.0);
+box(4.3, 0.06, 1.0, lam(0x46527a), 1.0, 0.92, 4.0);
+
+/* --- bancada de dosimetria (camada ampliada 5x) --- */
+const BENCH = { x: -5.3, z: 4.6 }, TABLE_Y = 0.86;
+const bench = new THREE.Group(); bench.position.set(BENCH.x, 0, BENCH.z); scene.add(bench);
+box(1.25, 0.04, 0.85, new THREE.MeshStandardMaterial({ color: 0x9fd0ff, transparent: true, opacity: 0.3, roughness: 0.1 }), 0, TABLE_Y - 0.02, 0, bench);
+[[-0.58,-0.38],[0.58,-0.38],[-0.58,0.38],[0.58,0.38]].forEach(([x, z]) => box(0.05, TABLE_Y - 0.04, 0.05, lam(0x39445e), x, (TABLE_Y - 0.04) / 2, z, bench));
 const GS = 0.045, NX = 20, NZ = 12, MAXNY = 14;
-const grainGeo = new THREE.IcosahedronGeometry(GS * 0.5, 0);
-const grains = new THREE.InstancedMesh(grainGeo, lam(0xffffff), NX * NZ * MAXNY);
-grains.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-grains.setColorAt(0, new THREE.Color(1, 1, 1));
-grains.frustumCulled = false;
-scene.add(grains);
-let ny = 4, layerOf = new Uint8Array(NX * NZ * MAXNY), jitter = new Float32Array(NX * NZ * MAXNY);
-(function(){ let s = 7; const r = () => (s = (s * 16807) % 2147483647) / 2147483647; for (let i = 0; i < jitter.length; i++) jitter[i] = 0.9 + r() * 0.16; })();
-const layerD = new Float32Array(MAXNY);
-const NEUTRAL = [0.78, 0.6, 0.3];
-const frame = new THREE.Mesh(new THREE.BoxGeometry(NX * GS + 0.04, 1, NZ * GS + 0.04), new THREE.MeshBasicMaterial({ color: 0x9fd0ff, transparent: true, opacity: 0.1, depthWrite: false }));
-scene.add(frame);
-
-let HBLOCK = 0.2;
+const grains = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(GS * 0.5, 0), lam(0xffffff), NX * NZ * MAXNY);
+grains.setColorAt(0, new THREE.Color(1, 1, 1)); grains.frustumCulled = false; bench.add(grains);
+let ny = 4;
+const layerOf = new Uint8Array(NX * NZ * MAXNY), jit = new Float32Array(NX * NZ * MAXNY), layerD = new Float32Array(MAXNY);
+(function(){ let s = 7; const r = () => (s = (s * 16807) % 2147483647) / 2147483647; for (let i = 0; i < jit.length; i++) jit[i] = 0.9 + r() * 0.16; })();
 function buildBlock(){
   ny = Math.max(2, Math.min(MAXNY, Math.round(S.T * 0.05 / GS)));
-  HBLOCK = ny * GS;
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), sc = new THREE.Vector3();
   let n = 0, s = 11; const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
   for (let j = 0; j < ny; j++) for (let iz = 0; iz < NZ; iz++) for (let ix = 0; ix < NX; ix++){
@@ -203,92 +253,68 @@ function buildBlock(){
     m.compose(v, q, sc); grains.setMatrixAt(n, m); layerOf[n] = j; n++;
   }
   grains.count = n; grains.instanceMatrix.needsUpdate = true;
-  frame.scale.y = HBLOCK; frame.position.y = TABLE_Y + HBLOCK / 2;
-  headTop.position.set(0, TABLE_Y + HBLOCK + 0.36, 0);
 }
 const tmpC = new THREE.Color();
-function paintBlock(p){
-  // dose acumulada na animação = dose final × p
-  for (let j = 0; j < ny; j++){
-    const z = S.T * ((ny - 1 - j) + 0.5) / ny;
-    layerD[j] = doseAt(z, S.T, S.E, S.sides, lvl().Ds);
-  }
-  const n = grains.count;
-  for (let i = 0; i < n; i++){
-    const j = layerOf[i], k = jitter[i];
-    const c = pal(layerD[j] * p / (lvl().Ds * 2.0));
-    const u = Math.min(1, p * 1.6);
-    tmpC.setRGB((NEUTRAL[0] + (c[0] - NEUTRAL[0]) * u) * k, (NEUTRAL[1] + (c[1] - NEUTRAL[1]) * u) * k, (NEUTRAL[2] + (c[2] - NEUTRAL[2]) * u) * k);
-    grains.setColorAt(i, tmpC);
-  }
+function paintBlock(){
+  for (let j = 0; j < ny; j++) layerD[j] = doseAt(S.T * ((ny - 1 - j) + 0.5) / ny, S.T, S.E, S.sides);
+  for (let i = 0; i < grains.count; i++){ const c = pal(layerD[layerOf[i]] / (DS * 2.0)), k = jit[i]; tmpC.setRGB(c[0] * k, c[1] * k, c[2] * k); grains.setColorAt(i, tmpC); }
   grains.instanceColor.needsUpdate = true;
 }
-
-/* insetos (demonstração): um por camada, na face voltada para o jogador */
 const bugs = [];
-const bugGeo = new THREE.SphereGeometry(1, 10, 8);
-for (let i = 0; i < MAXNY; i++){
-  const mat = new THREE.MeshBasicMaterial({ color: 0xff4a3d });
-  const m = new THREE.Mesh(bugGeo, mat); m.scale.set(0.014, 0.011, 0.024); scene.add(m);
-  bugs.push({ m, mat, alive: true, layer: i, ph: i * 1.7 });
-}
-function placeBugs(){
-  let s = 5; const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
+for (let i = 0; i < MAXNY; i++){ const mat = bas(0xff4a3d), m = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 8), mat); m.scale.set(0.014, 0.011, 0.024); bench.add(m); bugs.push({ m, mat, ph: i * 1.7, x: 0, alive: true }); }
+(function(){ let s = 5; const r = () => (s = (s * 16807) % 2147483647) / 2147483647; bugs.forEach(b => { b.x = (r() - 0.5) * (NX * GS - 0.12); }); })();
+function updateBugs(){
   bugs.forEach((b, i) => {
-    b.m.visible = i < ny; b.alive = true; b.mat.color.set(0xff4a3d); b.m.scale.set(0.014, 0.011, 0.024);
-    b.x = (r() - 0.5) * (NX * GS - 0.12);
-    b.y = TABLE_Y + (i + 0.5) * GS;
-    b.m.position.set(b.x, b.y, NZ * GS / 2 + 0.012);
+    b.m.visible = i < ny; b.alive = layerD[i] < ALVO;
+    b.mat.color.set(b.alive ? 0xff4a3d : 0x7d828c); b.m.scale.set(0.014, b.alive ? 0.011 : 0.005, 0.024);
+    b.m.position.set(b.x, TABLE_Y + (i + 0.5) * GS, NZ * GS / 2 + 0.012);
   });
 }
 
-/* feixes de partículas */
+/* --- feixes (partículas) --- */
 function makeBeam(){
-  const N = 280, geo = new THREE.BufferGeometry();
+  const N = 260, geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * 3), 3));
-  const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0x7fd8ff, size: 0.026, transparent: true, opacity: 0.95, depthWrite: false }));
-  pts.frustumCulled = false; pts.visible = false; scene.add(pts);
-  const d = []; for (let i = 0; i < N; i++) d.push({ u: Math.random(), x: (Math.random() - 0.5) * 0.16, z: (Math.random() - 0.5) * 0.12, v: 0.9 + Math.random() * 0.8 });
+  const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0x7fd8ff, size: 0.035, transparent: true, opacity: 0.95, depthWrite: false }));
+  pts.frustumCulled = false; scene.add(pts);
+  const d = []; for (let i = 0; i < N; i++) d.push({ u: Math.random(), x: (Math.random() - 0.5) * 0.12, z: (Math.random() - 0.5) * 0.8, v: 1.1 + Math.random() * 0.9 });
   return { pts, d, N };
 }
 const beamTop = makeBeam(), beamBot = makeBeam();
-function stepBeam(b, dt, y0, dir, reach){
+function stepBeam(b, dt, y0, y1){
   const a = b.pts.geometry.attributes.position.array;
-  for (let i = 0; i < b.N; i++){
-    const p = b.d[i]; p.u += dt * p.v; if (p.u > 1) p.u -= 1;
-    a[i*3] = p.x * (1 + 4.6 * p.u); a[i*3+1] = y0 + dir * p.u * reach; a[i*3+2] = p.z * (1 + 3.4 * p.u);
-  }
+  for (let i = 0; i < b.N; i++){ const p = b.d[i]; p.u += dt * p.v; if (p.u > 1) p.u -= 1;
+    a[i*3] = CELL.cx + p.x; a[i*3+1] = y0 + (y1 - y0) * p.u; a[i*3+2] = p.z * (0.55 + 0.45 * p.u); }
   b.pts.geometry.attributes.position.needsUpdate = true;
 }
+const scanLine = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.02, 0.1), bas(0xbff0ff)); scene.add(scanLine);
+const fall = (() => { const N = 70, geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * 3), 3));
+  const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xd9ae5a, size: 0.05, depthWrite: false })); pts.frustumCulled = false; scene.add(pts);
+  const d = []; for (let i = 0; i < N; i++) d.push({ u: Math.random(), dx: (Math.random() - 0.5) * 0.1, dz: (Math.random() - 0.5) * 0.1 }); return { pts, d, N }; })();
 
 /* ============================================================
    PAINÉIS (canvas → textura) com botões acionáveis por raio
    ============================================================ */
-const C = { bg: 'rgba(10,16,34,0.94)', line: 'rgba(120,160,230,0.35)', ink: '#eaf0ff', mut: '#9fb0d0', acc: '#4db8ff', ok: '#3fe08f', warn: '#ffb347', bad: '#ff6b5b' };
+const C = { bg: 'rgba(10,16,34,0.95)', line: 'rgba(120,160,230,0.35)', ink: '#eaf0ff', mut: '#a9b8d8', acc: '#4db8ff', ok: '#3fe08f', warn: '#ffb347', bad: '#ff6b5b' };
 function rr(ctx, x, y, w, h, r){ ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
 function wrap(ctx, text, x, y, maxW, lh){
   const words = text.split(' '); let line = '', yy = y;
-  for (const w of words){
-    const t = line ? line + ' ' + w : w;
-    if (ctx.measureText(t).width > maxW && line){ ctx.fillText(line, x, yy); line = w; yy += lh; } else line = t;
-  }
+  for (const w of words){ const t = line ? line + ' ' + w : w; if (ctx.measureText(t).width > maxW && line){ ctx.fillText(line, x, yy); line = w; yy += lh; } else line = t; }
   if (line){ ctx.fillText(line, x, yy); yy += lh; }
   return yy;
 }
 const panels = [];
-function Panel(wm, hm, pw, ph, draw, pos, rotY){
+function Panel(wm, hm, pw, ph, draw, pos, rot){
   const cvs = document.createElement('canvas'); cvs.width = pw; cvs.height = ph;
-  const ctx = cvs.getContext('2d');
-  const tex = new THREE.CanvasTexture(cvs); tex.anisotropy = 4;
+  const ctx = cvs.getContext('2d'), tex = new THREE.CanvasTexture(cvs); tex.anisotropy = 4;
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(wm, hm), new THREE.MeshBasicMaterial({ map: tex, transparent: true }));
   mesh.position.set(pos[0], pos[1], pos[2]);
-  if (rotY === 'face') mesh.lookAt(0, pos[1], START_Z); else mesh.rotation.y = rotY || 0;
+  if (rot && rot.face) mesh.lookAt(rot.face[0], pos[1], rot.face[1]);
+  if (rot && rot.tilt) mesh.rotateX(rot.tilt);
   scene.add(mesh);
   const P = { mesh, rects: [], hover: -1, pw, ph, tex,
     redraw(){
-      this.rects = [];
-      ctx.clearRect(0, 0, pw, ph);
-      const self = this;
+      this.rects = []; ctx.clearRect(0, 0, pw, ph); const self = this;
       draw(ctx, function B(x, y, w, h, label, o, fn){
         const idx = self.rects.length; o = o || {};
         self.rects.push({ x, y, w, h, fn: o.disabled ? null : fn });
@@ -297,268 +323,279 @@ function Panel(wm, hm, pw, ph, draw, pos, rotY){
         rr(ctx, x, y, w, h, Math.min(18, h / 3)); ctx.fill();
         ctx.lineWidth = 3; ctx.strokeStyle = hov ? '#fff' : C.line; ctx.stroke();
         ctx.fillStyle = o.disabled ? '#6f7b96' : ((o.on || hov) ? '#04101f' : C.ink);
-        ctx.font = (o.font || 'bold 34px') + ' system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(label, x + w / 2, y + h / 2 + 2);
-        ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+        ctx.font = (o.font || 'bold 32px') + ' system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(label, x + w / 2, y + h / 2 + 2); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
       }, P);
       tex.needsUpdate = true;
     },
-    hit(uv){
-      const px = uv.x * pw, py = (1 - uv.y) * ph;
-      for (let i = 0; i < this.rects.length; i++){ const r = this.rects[i]; if (px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h) return i; }
-      return -1;
-    }
+    hit(uv){ const px = uv.x * pw, py = (1 - uv.y) * ph; for (let i = 0; i < this.rects.length; i++){ const r = this.rects[i]; if (px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h) return i; } return -1; }
   };
-  mesh.userData.panel = P; panels.push(P);
-  return P;
+  mesh.userData.panel = P; panels.push(P); return P;
 }
-function card(ctx, pw, ph){
-  ctx.fillStyle = C.bg; rr(ctx, 6, 6, pw - 12, ph - 12, 36); ctx.fill();
-  ctx.lineWidth = 4; ctx.strokeStyle = C.line; ctx.stroke();
+function card(ctx, pw, ph, col){ ctx.fillStyle = C.bg; rr(ctx, 6, 6, pw - 12, ph - 12, 34); ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = col || C.line; ctx.stroke(); }
+function tag(ctx, x, y, text, col){
+  ctx.font = 'bold 24px system-ui, sans-serif'; const w = ctx.measureText(text).width + 30;
+  ctx.fillStyle = 'rgba(255,255,255,0.06)'; rr(ctx, x, y, w, 38, 19); ctx.fill(); ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = col; ctx.textBaseline = 'middle'; ctx.fillText(text, x + 15, y + 20); ctx.textBaseline = 'alphabetic'; return x + w + 10;
 }
-function badge(ctx, x, y, text, col){
-  ctx.font = 'bold 30px system-ui, sans-serif';
-  const w = ctx.measureText(text).width + 36;
-  ctx.fillStyle = 'rgba(255,255,255,0.06)'; rr(ctx, x, y, w, 46, 23); ctx.fill();
-  ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.stroke();
-  ctx.fillStyle = col; ctx.textBaseline = 'middle'; ctx.fillText(text, x + 18, y + 24); ctx.textBaseline = 'alphabetic';
-  return x + w + 12;
+function trefoil(ctx, cx, cy, R, col){
+  ctx.save(); ctx.translate(cx, cy); ctx.fillStyle = col;
+  for (let k = 0; k < 3; k++){ const a0 = -Math.PI / 2 + k * 2 * Math.PI / 3 - Math.PI / 6;
+    ctx.beginPath(); ctx.arc(0, 0, R, a0, a0 + Math.PI / 3); ctx.arc(0, 0, R * 0.36, a0 + Math.PI / 3, a0, true); ctx.closePath(); ctx.fill(); }
+  ctx.beginPath(); ctx.arc(0, 0, R * 0.2, 0, 2 * Math.PI); ctx.fill(); ctx.restore();
 }
-
-/* --- banner no alto --- */
-const banner = Panel(1.9, 0.52, 1520, 416, (ctx) => {
-  ctx.fillStyle = C.ink; ctx.font = 'bold 92px system-ui, sans-serif'; ctx.fillText('Laboratório de irradiação', 50, 118);
-  ctx.fillStyle = C.mut; ctx.font = '40px system-ui, sans-serif';
-  ctx.fillText('Regule o feixe e os lados: nenhum inseto pode sobreviver no lote.', 54, 186);
-  let x = 50;
-  x = badge(ctx, x, 222, 'alcance: referência NIST ESTAR', C.ok);
-  badge(ctx, x, 222, 'curva de dose: ilustrativa', C.warn);
-  badge(ctx, 50, 272, 'metas, doses e insetos: demonstração do jogo', C.warn);
-  ctx.fillStyle = C.mut; ctx.font = '28px system-ui, sans-serif';
-  ctx.fillText('Material educacional. Não substitui normas nem dosimetria.', 54, 366);
-}, [0, 2.3, -0.5], 'face');
-
-/* --- painel do operador --- */
-const ctl = Panel(0.72, 0.9, 576, 720, (ctx, B) => {
-  const L = lvl(), W = 576, st = stats(S.T, S.E, S.sides, L.Ds);
-  card(ctx, W, 720);
-  ctx.fillStyle = C.acc; ctx.font = 'bold 30px system-ui, sans-serif'; ctx.fillText('PAINEL DO OPERADOR', 36, 66);
-  ctx.fillStyle = C.mut; ctx.font = 'bold 28px system-ui, sans-serif'; ctx.fillText('Energia do feixe', 36, 128);
-  B(36, 146, 110, 96, '−', {}, () => setE(S.E - 1));
-  B(430, 146, 110, 96, '+', {}, () => setE(S.E + 1));
-  ctx.fillStyle = C.ink; ctx.font = 'bold 64px system-ui, sans-serif'; ctx.textAlign = 'center';
-  ctx.fillText(S.E + ' MeV', W / 2, 218); ctx.textAlign = 'left';
-  const R = rangeCm(S.E), okR = R >= S.T * (S.sides === 2 ? 0.5 : 1);
-  ctx.fillStyle = C.mut; ctx.font = '25px system-ui, sans-serif';
-  ctx.fillText('Alcance no grão: ' + f1(R) + ' cm', 36, 270);
-  ctx.fillStyle = C.warn; ctx.font = '21px system-ui, sans-serif';
-  ctx.fillText('calculado: NIST ESTAR ÷ densidade suposta', 36, 298);
-  ctx.fillStyle = C.mut; ctx.font = 'bold 28px system-ui, sans-serif'; ctx.fillText('Lados irradiados', 36, 352);
-  B(36, 368, 240, 86, '1 lado', { on: S.sides === 1 }, () => setSides(1));
-  B(300, 368, 240, 86, '2 lados', { on: S.sides === 2 }, () => setSides(2));
-  if (L.free){
-    ctx.fillStyle = C.mut; ctx.font = 'bold 28px system-ui, sans-serif'; ctx.fillText('Espessura do lote: ' + S.T + ' cm', 36, 502);
-    B(36, 518, 110, 70, '−', {}, () => setT(S.T - 1));
-    B(430, 518, 110, 70, '+', {}, () => setT(S.T + 1));
-  } else {
-    ctx.fillStyle = C.mut; ctx.font = '26px system-ui, sans-serif';
-    ctx.fillText('Lote: ' + S.T + ' cm de grãos', 36, 508);
-    ctx.fillStyle = okR ? C.ok : C.bad; ctx.font = 'bold 25px system-ui, sans-serif';
-    ctx.fillText(okR ? 'O feixe chega ao fundo.' : 'O feixe não chega ao fundo!', 36, 546);
-  }
-  const busy = S.phase === 'running';
-  B(36, 604, 360, 84, busy ? 'Irradiando…' : '▶ IRRADIAR', { on: !busy, col: C.ok, hot: '#7dffbf', disabled: busy, font: 'bold 38px' }, startRun);
-  B(412, 604, 128, 84, '↺', { disabled: busy }, resetRun);
-}, [-0.95, 1.3, 0.55], 'face');
-
-/* --- placar --- */
-const board = Panel(1.0, 0.98, 800, 784, (ctx, B) => {
-  const L = lvl(), W = 800;
-  card(ctx, W, 784);
-  ctx.fillStyle = C.acc; ctx.font = 'bold 30px system-ui, sans-serif';
-  ctx.fillText(L.free ? 'MODO LIVRE' : 'FASE ' + (S.lvl + 1) + ' DE ' + (LEVELS.length - 1), 40, 66);
-  ctx.fillStyle = C.ink; ctx.font = 'bold 50px system-ui, sans-serif'; ctx.fillText(L.nome, 40, 128);
-  ctx.fillStyle = C.mut; ctx.font = '27px system-ui, sans-serif';
-  let y = wrap(ctx, L.texto, 40, 176, 720, 36);
-  if (!L.free){
-    ctx.fillStyle = C.ink; ctx.font = 'bold 27px system-ui, sans-serif';
-    ctx.fillText('Meta: todo grão ≥ ' + L.alvo + ' Gy e DUR ≤ ' + f1(L.durMax), 40, y + 10); y += 40;
-  }
-  ctx.fillStyle = C.mut; ctx.font = '23px system-ui, sans-serif';
-  ctx.fillText('Dose na superfície, de cada lado: ' + L.Ds + ' Gy (valor do jogo)', 40, y + 8); y += 34;
-  // legenda da cor
-  const g = ctx.createLinearGradient(40, 0, 760, 0);
-  STOPS.forEach(([t, c]) => g.addColorStop(t, 'rgb(' + c.join(',') + ')'));
-  ctx.fillStyle = g; rr(ctx, 40, y + 4, 720, 22, 11); ctx.fill();
-  ctx.fillStyle = C.mut; ctx.font = '21px system-ui, sans-serif';
-  ctx.fillText('sem dose', 40, y + 52); ctx.textAlign = 'right'; ctx.fillText('muita dose', 760, y + 52); ctx.textAlign = 'left'; y += 84;
-
-  const r = S.result;
-  ctx.strokeStyle = C.line; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(40, y - 10); ctx.lineTo(760, y - 10); ctx.stroke();
-  if (r){
-    const cell = (x, lab, val, col) => { ctx.fillStyle = C.mut; ctx.font = '22px system-ui, sans-serif'; ctx.fillText(lab, x, y + 22); ctx.fillStyle = col; ctx.font = 'bold 42px system-ui, sans-serif'; ctx.fillText(val, x, y + 70); };
-    const okMin = r.mn >= L.alvo;
-    cell(40, 'Dmin', f1(r.mn) + ' Gy', L.free ? C.ink : (okMin ? C.ok : C.bad));
-    cell(300, 'Dmax', f1(r.mx) + ' Gy', C.ink);
-    cell(560, 'DUR', r.dur === null ? 'indef.' : f2(r.dur), (!L.free && r.dur !== null && r.dur > L.durMax) ? C.warn : C.ink);
-    y += 128;
-    ctx.fillStyle = C.ink; ctx.font = 'bold 27px system-ui, sans-serif';
-    ctx.fillText('Insetos vivos: ' + r.vivos + ' de ' + ny + '   ·   Gasto: ' + (S.E * S.sides) + ' (MeV × lados)', 40, y);
-    y += 20;
-    if (!L.free){
-      ctx.font = 'bold 60px system-ui, sans-serif';
-      for (let i = 0; i < 3; i++){ ctx.fillStyle = i < S.stars ? '#ffd24a' : 'rgba(255,255,255,0.14)'; ctx.fillText('★', 40 + i * 70, y + 58); }
-      ctx.fillStyle = S.stars >= 1 ? C.ok : C.bad; ctx.font = 'bold 27px system-ui, sans-serif';
-      y = wrap(ctx, S.msg, 250, y + 20, 520, 33);
-    } else {
-      ctx.fillStyle = C.mut; ctx.font = '25px system-ui, sans-serif';
-      wrap(ctx, S.msg, 40, y + 24, 720, 33);
-    }
-  } else {
+function radura(ctx, cx, cy, size, col){
+  const s = size / 120; ctx.save(); ctx.translate(cx - 60 * s, cy - 60 * s); ctx.scale(s, s);
+  ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineCap = 'round';
+  ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(60, 60, 48, Math.atan2(-48, -16), Math.atan2(-48, 16), true); ctx.stroke();
+  ctx.beginPath(); ctx.arc(60, 84, 7, 0, 2 * Math.PI); ctx.fill();
+  ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(60, 78); ctx.bezierCurveTo(60, 62, 60, 54, 60, 44); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(60, 56); ctx.bezierCurveTo(44, 56, 34, 48, 32, 34); ctx.bezierCurveTo(48, 34, 58, 40, 60, 56); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(60, 50); ctx.bezierCurveTo(76, 50, 86, 42, 88, 28); ctx.bezierCurveTo(72, 28, 62, 34, 60, 50); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+/* placa informativa: número, título, parágrafos e rodapé opcional */
+function board(n, title, paras, extra, w, h, pos, rot){
+  const pw = Math.round(w * 640), ph = Math.round(h * 640);
+  return Panel(w, h, pw, ph, (ctx) => {
+    card(ctx, pw, ph);
+    ctx.fillStyle = C.acc; ctx.font = 'bold 28px system-ui, sans-serif'; ctx.fillText(n, 38, 62);
+    ctx.fillStyle = C.ink; ctx.font = 'bold 42px system-ui, sans-serif'; let y = wrap(ctx, title, 38, 116, pw - 76, 48) + 4;
     ctx.fillStyle = C.mut; ctx.font = '28px system-ui, sans-serif';
-    wrap(ctx, 'Use o painel à esquerda e aperte IRRADIAR. Depois, olhe o lote de lado: a cor mostra a dose em cada camada.', 40, y + 24, 720, 38);
-  }
-  // navegação
-  B(40, 686, 150, 70, '◀', { disabled: S.phase === 'running' || S.lvl === 0, font: 'bold 34px' }, () => setLevel(S.lvl - 1));
-  B(210, 686, 380, 70, S.stars >= 1 && S.lvl < LEVELS.length - 2 ? 'Próxima fase ▶' : 'Fase seguinte ▶', { on: S.stars >= 1, disabled: S.phase === 'running' || S.lvl >= LEVELS.length - 1, font: 'bold 30px' }, () => setLevel(S.lvl + 1));
-  B(610, 686, 150, 70, '↺', { disabled: S.phase === 'running' }, resetRun);
-}, [0.95, 1.38, 0.2], 'face');
+    paras.forEach(t => { y = wrap(ctx, t, 38, y + 10, pw - 76, 37); });
+    if (extra) extra(ctx, y, pw, ph);
+  }, pos, rot);
+}
 
-/* --- como jogar --- */
-const how = Panel(0.8, 0.8, 640, 640, (ctx) => {
-  card(ctx, 640, 640);
-  ctx.fillStyle = C.acc; ctx.font = 'bold 30px system-ui, sans-serif'; ctx.fillText('COMO JOGAR', 36, 66);
-  ctx.fillStyle = C.ink; ctx.font = '29px system-ui, sans-serif';
-  let y = 124;
-  ['1. Aponte o controle e aperte o gatilho nos botões.',
-   '2. Aponte para o chão e aperte para andar.',
-   '3. Joystick: gira para o lado.',
-   '4. Escolha energia e lados, e aperte IRRADIAR.',
-   '5. Olhe o lote de lado: roxo = pouca dose, amarelo = muita.',
-   '6. Insetos vermelhos sobrevivem onde a dose é baixa.'].forEach(t => { y = wrap(ctx, t, 36, y, 570, 37) + 10; });
-  ctx.fillStyle = C.mut; ctx.font = '23px system-ui, sans-serif';
-  wrap(ctx, 'Dica: o elétron tem alcance limitado. O que fica além dele não recebe dose.', 36, y + 6, 570, 31);
-}, [-2.0, 1.45, 0.15], 'face');
+board('ESTAÇÃO 2', 'Recebimento: o silo', [
+  'Os grãos saem do silo e caem em bandejas que seguem pela esteira.',
+  'A geometria desta fábrica é de demonstração, não é de uma instalação real.'
+], (ctx, y, pw, ph) => { tag(ctx, 38, ph - 76, 'ilustração conceitual', C.warn); }, 1.0 * 1.2, 0.95, [-6.9, 1.95, -1.9], { face: [-6.9, 8] });
+board('ESTAÇÃO 3', 'A camada de grãos é fina', [
+  'O elétron perde energia aos poucos e para. Em água, um elétron de 10 MeV vai cerca de 5 cm (tabela NIST ESTAR).',
+  'Por isso a camada é fina e, muitas vezes, irradiada dos dois lados. Na bancada você vê o que acontece dentro dela, ampliada 5 vezes.'
+], (ctx, y, pw, ph) => { let x = 38; x = tag(ctx, x, ph - 76, 'alcance: referência NIST', C.ok); tag(ctx, x, ph - 76, 'densidade: suposta', C.warn); }, 1.3, 1.15, [-4.1, 1.95, -1.9], { face: [-4.1, 8] });
+board('ESTAÇÃO 4', 'Acelerador e sala blindada', [
+  'Dentro da sala, um acelerador produz elétrons rápidos e um ímã os faz varrer a largura da esteira. As paredes de concreto são grossas para proteger quem está do lado de fora.',
+  'Com o feixe ligado, ninguém entra. A norma brasileira (RDC 21/2001) aceita elétrons de até 10 MeV, raios X de até 5 MeV e gama de cobalto-60 ou césio-137.'
+], (ctx, y, pw, ph) => { tag(ctx, 38, ph - 76, 'feixe e geometria: ilustração', C.warn); }, 1.6, 1.4, [3.75, 1.95, 3.2], { face: [3.75, 9] });
+board('ESTAÇÃO 7', 'Expedição: rótulo e regras', [
+  'No Brasil, a embalagem deve trazer, no painel principal, a frase:'
+], (ctx, y, pw, ph) => {
+  ctx.fillStyle = C.ink; ctx.font = 'bold 28px system-ui, sans-serif'; ctx.strokeStyle = C.ink; ctx.lineWidth = 3; rr(ctx, 38, y + 6, pw - 76, 64, 10); ctx.stroke();
+  ctx.textAlign = 'center'; ctx.fillText('ALIMENTO TRATADO POR PROCESSO DE IRRADIAÇÃO', pw / 2, y + 48); ctx.textAlign = 'left'; y += 96;
+  ctx.fillStyle = C.mut; ctx.font = '27px system-ui, sans-serif';
+  ['ANVISA regula o alimento irradiado (RDC 21/2001).', 'CNEN autoriza as fontes e as instalações.', 'A vigilância sanitária emite o alvará.', 'O MAPA cuida do controle fitossanitário.'].forEach(t => { y = wrap(ctx, '• ' + t, 38, y + 6, pw - 76, 34); });
+  tag(ctx, 38, ph - 66, 'fonte: texto da RDC 21/2001', C.ok);
+}, 1.35, 1.35, [9.0, 1.95, -1.9], { face: [9.0, 8] });
+Panel(0.9, 0.5, 900, 500, (ctx) => {   // rótulo e radura no palete
+  card(ctx, 900, 500, '#3fe08f'); radura(ctx, 150, 250, 190, '#7dffbf');
+  ctx.fillStyle = C.ink; ctx.font = 'bold 40px system-ui, sans-serif'; wrap(ctx, 'ALIMENTO TRATADO POR PROCESSO DE IRRADIAÇÃO', 280, 190, 580, 50);
+  ctx.fillStyle = C.mut; ctx.font = '26px system-ui, sans-serif'; wrap(ctx, 'A radura é um símbolo internacional. O texto da RDC 21/2001 exige a frase escrita e não menciona o símbolo.', 280, 330, 580, 34);
+}, [PALLET.x, 1.15, PALLET.z + 0.62], { face: [PALLET.x, 8] });
+
+/* --- letreiro da sala blindada --- */
+const sign = Panel(3.0, 0.5, 1500, 250, (ctx) => {
+  ctx.fillStyle = 'rgba(14,18,30,0.97)'; ctx.fillRect(0, 0, 1500, 250);
+  ctx.fillStyle = '#ffc233'; ctx.fillRect(0, 0, 1500, 14); ctx.fillRect(0, 236, 1500, 14);
+  trefoil(ctx, 130, 125, 90, '#ffc233');
+  ctx.fillStyle = C.ink; ctx.font = 'bold 76px system-ui, sans-serif'; ctx.fillText('SALA DE IRRADIAÇÃO', 260, 112);
+  ctx.font = 'bold 42px system-ui, sans-serif';
+  ctx.fillStyle = S.beam ? '#ff6b5b' : '#9fb0d0'; ctx.fillText(S.beam ? 'FEIXE LIGADO · NÃO ENTRE' : 'Feixe desligado', 262, 180);
+}, [1.0, 3.42, 3.14], { face: [1.0, 9] });
+
+/* --- console (sala de controle) --- */
+Panel(0.96, 0.96, 768, 768, (ctx, B) => {
+  const W = 768, R = rangeCm(S.E), okR = R >= S.T * (S.sides === 2 ? 0.5 : 1);
+  card(ctx, W, 768);
+  ctx.fillStyle = C.acc; ctx.font = 'bold 30px system-ui, sans-serif'; ctx.fillText('ESTAÇÃO 5 · SALA DE CONTROLE', 38, 60);
+  ctx.fillStyle = C.mut; ctx.font = 'bold 27px system-ui, sans-serif'; ctx.fillText('Feixe de elétrons', 38, 112);
+  B(38, 126, 330, 80, 'LIGADO', { on: S.beam, col: '#ff8a7a', hot: '#ffb0a4' }, () => act.beam(true));
+  B(388, 126, 342, 80, 'DESLIGADO', { on: !S.beam }, () => act.beam(false));
+  ctx.fillStyle = C.mut; ctx.font = 'bold 27px system-ui, sans-serif'; ctx.fillText('Esteira', 38, 250);
+  B(38, 264, 330, 80, 'ANDANDO', { on: S.belt }, () => act.belt(true));
+  B(388, 264, 342, 80, 'PARADA', { on: !S.belt }, () => act.belt(false));
+  ctx.fillStyle = C.mut; ctx.font = 'bold 27px system-ui, sans-serif'; ctx.fillText('Energia dos elétrons', 38, 388);
+  B(38, 402, 110, 90, '−', {}, () => act.E(-1)); B(620, 402, 110, 90, '+', {}, () => act.E(1));
+  ctx.fillStyle = C.ink; ctx.font = 'bold 62px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(S.E + ' MeV', W / 2, 472); ctx.textAlign = 'left';
+  ctx.fillStyle = C.mut; ctx.font = 'bold 27px system-ui, sans-serif'; ctx.fillText('Lados irradiados', 38, 540);
+  B(38, 554, 330, 76, '1 lado', { on: S.sides === 1 }, () => act.sides(1)); B(388, 554, 342, 76, '2 lados', { on: S.sides === 2 }, () => act.sides(2));
+  ctx.fillStyle = C.mut; ctx.font = 'bold 27px system-ui, sans-serif'; ctx.fillText('Camada de grãos: ' + S.T + ' cm', 38, 672);
+  B(520, 640, 90, 70, '−', {}, () => act.T(-1)); B(630, 640, 90, 70, '+', {}, () => act.T(1));
+  ctx.fillStyle = okR ? C.ok : C.bad; ctx.font = '23px system-ui, sans-serif';
+  ctx.fillText('Alcance no grão: ' + f1(R) + ' cm · ' + (okR ? 'o feixe chega ao fundo' : 'não chega ao fundo'), 38, 742);
+}, [1.0, 1.12, 3.85], { face: [1.0, 9], tilt: -0.95 });
+
+/* --- monitor: resultado do lote --- */
+Panel(0.9, 0.78, 720, 624, (ctx) => {
+  const r = ST, ok = r.mn >= ALVO;
+  card(ctx, 720, 624, ok ? '#3fe08f' : '#ff6b5b');
+  ctx.fillStyle = C.acc; ctx.font = 'bold 28px system-ui, sans-serif'; ctx.fillText('DOSIMETRIA · RESULTADO DO LOTE', 36, 58);
+  const cell = (x, lab, val, col) => { ctx.fillStyle = C.mut; ctx.font = '23px system-ui, sans-serif'; ctx.fillText(lab, x, 112); ctx.fillStyle = col; ctx.font = 'bold 50px system-ui, sans-serif'; ctx.fillText(val, x, 166); };
+  cell(36, 'Dmin', f1(r.mn) + ' Gy', ok ? C.ok : C.bad); cell(262, 'Dmax', f1(r.mx) + ' Gy', C.ink); cell(500, 'DUR', r.dur === null ? 'indef.' : f2(r.dur), C.ink);
+  ctx.fillStyle = ok ? C.ok : C.bad; ctx.font = 'bold 34px system-ui, sans-serif';
+  let y = wrap(ctx, ok ? 'Lote dentro da meta didática (≥ ' + ALVO + ' Gy).' : (r.mn <= 1e-6 ? 'Há grãos sem nenhuma dose: o feixe não chega ao fundo.' : 'Lote abaixo da meta didática (≥ ' + ALVO + ' Gy).'), 36, 232, 650, 42);
+  ctx.fillStyle = C.mut; ctx.font = '26px system-ui, sans-serif';
+  y = wrap(ctx, 'O ponto que recebe menos dose (Dmin) é o que decide. Dmax ÷ Dmin é o DUR: quanto mais perto de 1, mais uniforme.', 36, y + 18, 650, 34);
+  const vivos = bugs.filter((b, i) => i < ny && b.alive).length;
+  ctx.fillStyle = vivos ? C.warn : C.ok; ctx.font = 'bold 28px system-ui, sans-serif'; ctx.fillText('Insetos sobreviventes na bancada: ' + vivos + ' de ' + ny, 36, y + 28);
+  tag(ctx, 36, 560, 'meta e doses: demonstração', C.warn); tag(ctx, 36 + 330, 560, 'curva: ilustrativa', C.warn);
+}, [2.75, 1.1, 3.95], { face: [1.0, 9], tilt: -0.9 });
+
+/* --- visita guiada --- */
+const STATIONS = [
+  { n: 1, nome: 'Sala de controle', x: 1.0, z: 5.5 }, { n: 2, nome: 'Silo e recebimento', x: -6.9, z: 2.2 },
+  { n: 3, nome: 'Esteira e camada fina', x: -4.1, z: 2.2 }, { n: 4, nome: 'Acelerador e sala blindada', x: 3.9, z: 5.2 },
+  { n: 5, nome: 'Bancada de dosimetria', x: -5.3, z: 6.3 }, { n: 6, nome: 'Expedição e rótulo', x: 9.0, z: 2.2 }
+];
+Panel(0.96, 0.96, 768, 768, (ctx, B) => {
+  card(ctx, 768, 768);
+  ctx.fillStyle = C.acc; ctx.font = 'bold 30px system-ui, sans-serif'; ctx.fillText('ESTAÇÃO 1 · VISITA GUIADA', 38, 60);
+  ctx.fillStyle = C.ink; ctx.font = 'bold 40px system-ui, sans-serif'; ctx.fillText('Fábrica de irradiação de grãos', 38, 112);
+  ctx.fillStyle = C.mut; ctx.font = '25px system-ui, sans-serif';
+  let y = wrap(ctx, 'Aponte e aperte o gatilho nos botões abaixo, ou nos círculos numerados do chão, para ir até cada estação. Joystick: gira.', 38, 152, 690, 32);
+  STATIONS.forEach((s, i) => { B(38 + (i % 2) * 350, y + 8 + Math.floor(i / 2) * 82, 340, 72, s.n + ' · ' + s.nome, { font: 'bold 23px' }, () => teleportTo({ x: s.x, z: s.z })); });
+  y += 8 + 3 * 82 + 16;
+  ctx.fillStyle = C.ink; ctx.font = 'bold 24px system-ui, sans-serif'; ctx.fillText('O que é dado e o que é ilustração', 38, y + 14);
+  tag(ctx, 38, y + 30, 'alcance do elétron: NIST ESTAR', C.ok);
+  tag(ctx, 38, y + 76, 'forma da curva de dose: ilustrativa', C.warn);
+  tag(ctx, 38, y + 122, 'fábrica, feixe, metas e doses: demonstração', C.warn);
+}, [-0.55, 1.1, 3.85], { face: [1.0, 9], tilt: -0.9 });
+
+/* --- bancada --- */
+Panel(0.9, 0.9, 720, 720, (ctx) => {
+  card(ctx, 720, 720);
+  ctx.fillStyle = C.acc; ctx.font = 'bold 28px system-ui, sans-serif'; ctx.fillText('ESTAÇÃO 6 · BANCADA DE DOSIMETRIA', 36, 58);
+  ctx.fillStyle = C.ink; ctx.font = 'bold 40px system-ui, sans-serif'; ctx.fillText('Dentro da camada de grãos', 36, 112);
+  ctx.fillStyle = C.mut; ctx.font = '26px system-ui, sans-serif';
+  let y = wrap(ctx, 'Este corte mostra a dose em cada camada, com os ajustes do console (' + S.E + ' MeV, ' + S.sides + ' lado' + (S.sides > 1 ? 's' : '') + ', ' + S.T + ' cm), ampliado 5 vezes.', 36, 156, 650, 34);
+  const g = ctx.createLinearGradient(36, 0, 684, 0); STOPS.forEach(([t, c]) => g.addColorStop(t, 'rgb(' + c.join(',') + ')'));
+  ctx.fillStyle = g; rr(ctx, 36, y + 10, 648, 22, 11); ctx.fill();
+  ctx.fillStyle = C.mut; ctx.font = '22px system-ui, sans-serif'; ctx.fillText('sem dose', 36, y + 62); ctx.textAlign = 'right'; ctx.fillText('muita dose', 684, y + 62); ctx.textAlign = 'left'; y += 104;
+  ctx.fillStyle = C.ink; ctx.font = 'bold 26px system-ui, sans-serif'; ctx.fillText('Pontinhos vermelhos', 36, y);
+  ctx.fillStyle = C.mut; ctx.font = '26px system-ui, sans-serif'; y = wrap(ctx, 'são insetos (demonstração) que sobrevivem onde a dose fica abaixo da meta. Cinza: já inativados.', 36, y + 36, 650, 34);
+  wrap(ctx, 'Mude a energia, os lados e a espessura no console e veja as cores mudarem. Dica: troque para 1 lado.', 36, y + 18, 650, 34);
+  tag(ctx, 36, 660, 'curva de dose: ilustrativa', C.warn);
+}, [BENCH.x - 1.2, 1.35, BENCH.z + 0.1], { face: [BENCH.x - 0.4, 8] });
+Panel(1.0, 0.36, 800, 288, (ctx) => {   // placa de segurança
+  ctx.fillStyle = C.bg; ctx.fillRect(0, 0, 800, 288); ctx.fillStyle = '#ffc233'; ctx.fillRect(0, 0, 800, 12);
+  trefoil(ctx, 110, 150, 70, '#ffc233'); ctx.fillStyle = C.ink; ctx.font = 'bold 40px system-ui, sans-serif'; ctx.fillText('ÁREA DE RADIAÇÃO', 210, 140);
+  ctx.fillStyle = C.mut; ctx.font = '28px system-ui, sans-serif'; ctx.fillText('Sala fechada com o feixe ligado', 212, 190);
+}, [-1.75, 1.95, 3.14], { face: [-1.75, 9] });
 
 function redrawAll(){ panels.forEach(p => p.redraw()); }
 
 /* ============================================================
-   JOGO
+   AÇÕES DO CONSOLE
    ============================================================ */
-function setE(v){ if (S.phase === 'running') return; S.E = Math.max(1, Math.min(10, v)); clearResult(); sfx('tick'); }
-function setSides(v){ if (S.phase === 'running') return; S.sides = v; clearResult(); sfx('tick'); }
-function setT(v){ if (S.phase === 'running') return; S.T = Math.max(2, Math.min(12, v)); buildBlock(); placeBugs(); clearResult(); sfx('tick'); }
-function clearResult(){ S.result = null; S.stars = -1; S.msg = ''; S.phase = 'ready'; S.p = 0; paintBlock(0); resetBugs(); redrawAll(); }
-function resetRun(){ clearResult(); }
-function resetBugs(){ bugs.forEach(b => { b.alive = true; b.mat.color.set(0xff4a3d); b.m.scale.set(0.014, 0.011, 0.024); }); }
-function setLevel(i){
-  if (S.phase === 'running') return;
-  S.lvl = Math.max(0, Math.min(LEVELS.length - 1, i));
-  S.T = lvl().T; S.E = 5; S.sides = 1;
-  buildBlock(); placeBugs(); clearResult(); sfx('tick');
-}
-function startRun(){
-  if (S.phase === 'running') return;
-  resetBugs(); S.result = null; S.stars = -1; S.msg = '';
-  S.phase = 'running'; S.p = 0; S.t0 = performance.now(); S.hum = sfx('hum'); redrawAll();
-}
-function finishRun(){
-  const L = lvl(), st = stats(S.T, S.E, S.sides, L.Ds);
-  const vivos = bugs.filter((b, i) => i < ny && b.alive).length;
-  S.result = { mn: st.mn, mx: st.mx, dur: st.dur, vivos };
-  if (L.free){
-    S.stars = -1;
-    S.msg = st.mn <= 1e-6 ? 'Há grãos sem nenhuma dose: o elétron não chega até eles.' : 'O ponto mais fraco recebeu ' + f1(st.mn) + ' Gy. É ele que decide o resultado.';
-  } else {
-    const ok1 = st.mn >= L.alvo, ok2 = ok1 && st.dur <= L.durMax, ok3 = ok2 && S.E * S.sides <= L.best;
-    S.stars = ok3 ? 3 : ok2 ? 2 : ok1 ? 1 : 0;
-    if (S.stars === 3) S.msg = 'Perfeito! Menor gasto de energia possível nesta fase.';
-    else if (S.stars === 2) S.msg = 'Meta cumprida e dose uniforme. Dá para gastar menos energia?';
-    else if (S.stars === 1) S.msg = 'Todos os grãos passaram da meta, mas a dose ficou desigual (DUR ' + f2(st.dur) + ' > ' + f1(L.durMax) + ').';
-    else if (st.mn <= 1e-6) S.msg = 'Há grãos sem nenhuma dose: o feixe não chega ao fundo. Tente mais energia ou os dois lados.';
-    else S.msg = 'O ponto mais fraco recebeu ' + f1(st.mn) + ' Gy, abaixo de ' + L.alvo + ' Gy. Os insetos ali sobrevivem.';
-  }
-  S.phase = 'done'; S.p = 1; paintBlock(1); redrawAll();
-  sfx(S.stars >= 1 ? 'win' : (S.stars === 0 ? 'lose' : 'tick'));
-  haptic(0.6, 120);
-}
+function refresh(){ ST = stats(S.T, S.E, S.sides); paintBlock(); updateBugs(); redrawAll(); sizeTrays(); }
+const act = {
+  beam(v){ S.beam = v; sfx('click'); refresh(); },
+  belt(v){ S.belt = v; sfx('click'); refresh(); },
+  E(d){ S.E = Math.max(1, Math.min(10, S.E + d)); sfx('click'); refresh(); },
+  sides(n){ S.sides = n; sfx('click'); refresh(); },
+  T(d){ S.T = Math.max(2, Math.min(12, S.T + d)); buildBlock(); sfx('click'); refresh(); }
+};
 
 /* ============================================================
-   SOM (Web Audio, criado depois do primeiro clique)
+   SOM (criado depois do primeiro clique)
    ============================================================ */
-let AC = null;
-function audio(){ if (!AC){ try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e){} } if (AC && AC.state === 'suspended') AC.resume(); return AC; }
+let AC = null, hum = null;
+function audio(){
+  if (!AC){ try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e){} }
+  if (AC && AC.state === 'suspended') AC.resume();
+  if (AC && !hum){ try {
+    const g = AC.createGain(); g.gain.value = 0; g.connect(AC.destination);
+    const o1 = AC.createOscillator(), o2 = AC.createOscillator(); o1.type = 'sawtooth'; o2.type = 'sine'; o1.frequency.value = 58; o2.frequency.value = 116;
+    const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 260; o1.connect(f); f.connect(g); o2.connect(g); o1.start(); o2.start(); hum = { g };
+  } catch (e){} }
+  return AC;
+}
 function tone(f, d, type, vol, t0){
-  const a = audio(); if (!a) return;
+  const a = audio(); if (!a || !S.sound) return;
   const o = a.createOscillator(), g = a.createGain(), t = a.currentTime + (t0 || 0);
-  o.type = type || 'sine'; o.frequency.value = f; g.gain.setValueAtTime(vol || 0.08, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+  o.type = type || 'sine'; o.frequency.value = f; g.gain.setValueAtTime(vol || 0.05, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
   o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + d + 0.02);
 }
-function sfx(k){
-  try {
-    if (k === 'tick') tone(660, 0.07, 'square', 0.04);
-    else if (k === 'hum'){ tone(110, DUR_RUN, 'sawtooth', 0.035); tone(220, DUR_RUN, 'sine', 0.03); }
-    else if (k === 'win'){ [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.22, 'triangle', 0.08, i * 0.11)); }
-    else if (k === 'lose'){ tone(220, 0.25, 'sawtooth', 0.06); tone(165, 0.35, 'sawtooth', 0.06, 0.2); }
-    else if (k === 'bug') tone(900 + Math.random() * 200, 0.05, 'square', 0.025);
-  } catch (e){}
-}
-function haptic(v, ms){
-  controllers.forEach(c => { try { const a = c.userData.gamepad && c.userData.gamepad.hapticActuators; if (a && a[0]) a[0].pulse(v, ms); } catch (e){} });
+function sfx(k){ try { if (k === 'click') tone(660, 0.07, 'square', 0.03); else if (k === 'step') tone(330, 0.09, 'triangle', 0.04); } catch (e){} }
+function haptic(v, ms){ controllers.forEach(c => { try { const a = c.userData.gamepad && c.userData.gamepad.hapticActuators; if (a && a[0]) a[0].pulse(v, ms); } catch (e){} }); }
+
+/* ============================================================
+   CÍRCULOS NO CHÃO (estações) + TELETRANSPORTE
+   ============================================================ */
+const pads = [];
+STATIONS.forEach(s => {
+  const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+  g.fillStyle = 'rgba(30,90,160,0.55)'; g.beginPath(); g.arc(64, 64, 62, 0, 7); g.fill();
+  g.strokeStyle = '#7fd0ff'; g.lineWidth = 6; g.beginPath(); g.arc(64, 64, 58, 0, 7); g.stroke();
+  g.fillStyle = '#eaf6ff'; g.font = 'bold 64px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(String(s.n), 64, 68);
+  const m = new THREE.Mesh(new THREE.CircleGeometry(0.34, 32), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false }));
+  m.rotation.x = -Math.PI / 2; m.position.set(s.x, 0.025, s.z); m.userData.pad = s; scene.add(m); pads.push(m);
+});
+const BLOCK = [
+  [CELL.x0, CELL.x1, CELL.z0, CELL.z1, 'cell'],
+  [BELT_X0 - 0.3, BELT_X1 + 0.3, -0.62, 0.62],
+  [SILO.x - 1.5, SILO.x + 1.5, SILO.z - 1.5, SILO.z + 1.5],
+  [-1.2, 3.2, 3.45, 4.6],
+  [BENCH.x - 0.75, BENCH.x + 0.75, BENCH.z - 0.55, BENCH.z + 0.55],
+  [PALLET.x - 0.8, PALLET.x + 0.8, PALLET.z - 0.7, PALLET.z + 0.7]
+];
+function validSpot(p){
+  if (p.x < HALL.x0 + 0.6 || p.x > HALL.x1 - 0.6 || p.z < HALL.z0 + 0.6 || p.z > HALL.z1 - 0.5) return false;
+  for (const b of BLOCK){
+    if (p.x > b[0] && p.x < b[1] && p.z > b[2] && p.z < b[3]){
+      if (b[4] === 'cell' && !S.beam && p.x > CELL.ix0 && p.x < CELL.ix1 && p.z > CELL.iz0 && p.z < CELL.iz1) continue;
+      return false;
+    }
+  }
+  return true;
 }
 
 /* ============================================================
    ENTRADA: controles do Quest + mouse
    ============================================================ */
 const controllers = [];
-const ray = new THREE.Raycaster(); ray.far = 12;
+const ray = new THREE.Raycaster(); ray.far = 40;
 const tpMarker = new THREE.Mesh(new THREE.RingGeometry(0.16, 0.22, 32), new THREE.MeshBasicMaterial({ color: 0x4db8ff, transparent: true, opacity: 0.9, side: THREE.DoubleSide }));
 tpMarker.rotation.x = -Math.PI / 2; tpMarker.visible = false; scene.add(tpMarker);
-const hitFloorValid = p => Math.hypot(p.x, p.z) < FLOOR_R && !(Math.abs(p.x) < 0.75 && Math.abs(p.z) < 0.6);
-
 function makeController(i){
   const c = renderer.xr.getController(i);
-  const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,-1)]);
-  const line = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 }));
+  const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,-1)]), new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 }));
   line.name = 'ray'; c.add(line);
   const body = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.025, 0.12, 12), std(0x2b3550)); body.rotation.x = Math.PI / 2; body.position.z = 0.04; c.add(body);
   c.userData.hit = null;
-  c.addEventListener('connected', e => { c.userData.gamepad = e.data && e.data.gamepad; c.userData.hand = e.data && e.data.handedness; });
+  c.addEventListener('connected', e => { c.userData.gamepad = e.data && e.data.gamepad; });
   c.addEventListener('selectstart', () => onSelect(c.userData.hit));
   dolly.add(c); controllers.push(c);
 }
 makeController(0); makeController(1);
-
-const targets = () => panels.map(p => p.mesh).concat([floor]);
+const targets = () => panels.map(p => p.mesh).concat(pads, [floor]);
 function castFrom(origin, dir){
   ray.set(origin, dir);
   const h = ray.intersectObjects(targets(), false)[0];
   if (!h) return null;
   if (h.object === floor) return { kind: 'floor', point: h.point, dist: h.distance };
-  const P = h.object.userData.panel, idx = P.hit(h.uv);
-  return { kind: 'panel', P, idx, point: h.point, dist: h.distance };
+  if (h.object.userData.pad) return { kind: 'pad', pad: h.object.userData.pad, point: h.point, dist: h.distance };
+  const P = h.object.userData.panel; return { kind: 'panel', P, idx: P.hit(h.uv), point: h.point, dist: h.distance };
 }
 function onSelect(h){
-  audio();
-  if (!h) return;
+  audio(); if (!h) return;
   if (h.kind === 'panel'){ if (h.idx >= 0){ const r = h.P.rects[h.idx]; if (r.fn){ r.fn(); haptic(0.3, 30); } } return; }
-  if (h.kind === 'floor' && hitFloorValid(h.point)) teleportTo(h.point);
+  if (h.kind === 'pad'){ teleportTo(h.pad); return; }
+  if (h.kind === 'floor' && validSpot(h.point)) teleportTo(h.point);
 }
-function headPos(){ return new THREE.Vector3().setFromMatrixPosition(camera.matrixWorld); }
+const headPos = () => new THREE.Vector3().setFromMatrixPosition(camera.matrixWorld);
 function teleportTo(p){
-  camera.updateMatrixWorld(true);
-  const hd = headPos();
+  camera.updateMatrixWorld(true); const hd = headPos();
   dolly.position.x += p.x - hd.x; dolly.position.z += p.z - hd.z;
-  sfx('tick'); haptic(0.2, 25);
+  sfx('step'); haptic(0.2, 25);
 }
 function snapTurn(a){
   camera.updateMatrixWorld(true); const b = headPos();
   dolly.rotation.y += a; dolly.updateMatrixWorld(true); camera.updateMatrixWorld(true);
   const c = headPos(); dolly.position.x += b.x - c.x; dolly.position.z += b.z - c.z;
 }
-
-/* mouse / toque (modo tela) */
-const mouse = new THREE.Vector2(); let mouseHit = null, drag = null;
+const mouse = new THREE.Vector2(); let drag = null;
 function ndc(e){ const r = cv.getBoundingClientRect(); mouse.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); }
 cv.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY, moved: false }; cv.setPointerCapture(e.pointerId); });
 cv.addEventListener('pointermove', e => {
@@ -571,137 +608,126 @@ cv.addEventListener('pointermove', e => {
 });
 cv.addEventListener('pointerup', e => {
   ndc(e); const was = drag; drag = null;
-  if (was && !was.moved && !renderer.xr.isPresenting){
-    ray.setFromCamera(mouse, camera);
-    const h = castFrom(ray.ray.origin.clone(), ray.ray.direction.clone());
-    onSelect(h);
-  }
+  if (was && !was.moved && !renderer.xr.isPresenting){ ray.setFromCamera(mouse, camera); onSelect(castFrom(ray.ray.origin.clone(), ray.ray.direction.clone())); }
 });
 cv.addEventListener('wheel', e => {
-  if (renderer.xr.isPresenting) return;
-  e.preventDefault();
+  if (renderer.xr.isPresenting) return; e.preventDefault();
   const d = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
-  const np = dolly.position.clone().addScaledVector(d, -Math.sign(e.deltaY) * 0.35);
-  if (Math.hypot(np.x, np.z) < FLOOR_R) dolly.position.copy(np);
+  const np = dolly.position.clone().addScaledVector(d, -Math.sign(e.deltaY) * 0.5);
+  if (np.x > HALL.x0 + 1 && np.x < HALL.x1 - 1 && np.z > HALL.z0 + 1 && np.z < HALL.z1 - 0.6) dolly.position.copy(np);
 }, { passive: false });
 
 /* ============================================================
    VR
    ============================================================ */
-const vrBtn = document.getElementById('vr');
-let xrSession = null;
+const vrBtn = document.getElementById('vr'); let xrSession = null;
 async function initVR(){
   if (!navigator.xr){ vrBtn.textContent = 'VR indisponível neste navegador'; return; }
-  let ok = false;
-  try { ok = await navigator.xr.isSessionSupported('immersive-vr'); } catch (e){}
+  let ok = false; try { ok = await navigator.xr.isSessionSupported('immersive-vr'); } catch (e){}
   if (!ok){ vrBtn.textContent = 'VR indisponível: use o modo tela'; return; }
   vrBtn.disabled = false; vrBtn.textContent = 'Entrar em VR';
   vrBtn.onclick = async () => {
-    audio();
-    if (xrSession){ xrSession.end(); return; }
+    audio(); if (xrSession){ xrSession.end(); return; }
     try {
       const s = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'bounded-floor'] });
       xrSession = s;
-      s.addEventListener('end', () => { xrSession = null; dolly.position.set(0, 0, 2.8); dolly.rotation.y = 0; vrBtn.textContent = 'Entrar em VR'; camera.position.set(0, 1.6, 0); document.getElementById('help').style.display = ''; });
+      s.addEventListener('end', () => { xrSession = null; vrBtn.textContent = 'Entrar em VR'; dolly.position.set(1.0, 0, 7.0); dolly.rotation.y = 0; camera.position.set(0, 1.6, 0); document.getElementById('help').style.display = ''; });
       await renderer.xr.setSession(s);
       try { renderer.xr.setFoveation && renderer.xr.setFoveation(1); } catch (e){}
-      dolly.position.set(0, 0, START_Z); dolly.rotation.y = 0;
+      dolly.position.copy(SPAWN); dolly.rotation.y = 0;
       vrBtn.textContent = 'Sair do VR'; document.getElementById('help').style.display = 'none';
     } catch (err){ vrBtn.textContent = 'Não foi possível entrar em VR'; console.error(err); }
   };
 }
 initVR();
-
 let turnCool = 0;
 function pollSticks(dt){
-  turnCool -= dt;
-  const s = renderer.xr.getSession && renderer.xr.getSession();
-  if (!s) return;
-  for (const src of s.inputSources){
-    const gp = src.gamepad; if (!gp || !gp.axes) continue;
+  turnCool -= dt; const s = renderer.xr.getSession && renderer.xr.getSession(); if (!s) return;
+  for (const src of s.inputSources){ const gp = src.gamepad; if (!gp || !gp.axes) continue;
     const x = gp.axes.length > 2 ? gp.axes[2] : gp.axes[0];
-    if (Math.abs(x) > 0.7 && turnCool <= 0){ snapTurn(x > 0 ? -Math.PI / 6 : Math.PI / 6); turnCool = 0.3; }
-  }
+    if (Math.abs(x) > 0.7 && turnCool <= 0){ snapTurn(x > 0 ? -Math.PI / 6 : Math.PI / 6); turnCool = 0.3; } }
 }
 
 /* ============================================================
    LOOP
    ============================================================ */
-function resize(){
-  const w = window.innerWidth, h = window.innerHeight;
-  renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
-}
+function resize(){ const w = window.innerWidth, h = window.innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
 window.addEventListener('resize', resize); resize();
 
 const tmpO = new THREE.Vector3(), tmpD = new THREE.Vector3(), tmpM = new THREE.Matrix4();
-let last = performance.now(), lastHoverKey = '';
+let last = performance.now(), lastHoverKey = '', lastBeam = null, scanT = 0;
+const BEAM_X = CELL.cx, TOP_NOZZLE = 1.35, BOT_NOZZLE = 0.72;
 function frame_(now){
-  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  const dt = Math.min(0.05, (now - last) / 1000); last = now; scanT += dt;
   const pres = renderer.xr.isPresenting;
-  if (!pres){ camera.rotation.set(pitch, yaw, 0, 'YXZ'); }
-  else pollSticks(dt);
+  if (!pres) camera.rotation.set(pitch, yaw, 0, 'YXZ'); else pollSticks(dt);
 
-  /* animação da irradiação */
-  const L = lvl();
-  const running = S.phase === 'running';
-  if (running){
-    S.p = Math.min(1, (now - S.t0) / 1000 / DUR_RUN);
-    paintBlock(S.p);
-    bugs.forEach((b, i) => {
-      if (i >= ny || !b.alive) return;
-      if (layerD[i] * S.p >= L.alvo){ b.alive = false; b.mat.color.set(0x7d828c); b.m.scale.set(0.014, 0.005, 0.024); sfx('bug'); }
-    });
-    if (S.p >= 1) finishRun();
+  /* esteira e bandejas */
+  if (S.belt) beltTex.offset.x = (beltTex.offset.x - BELT_V * dt / 0.4) % 1;
+  const trayTop = BELT_Y + S.T / 100 + 0.03;
+  const camBeam = (x) => Math.abs(x - BEAM_X) < TRAY_W / 2 + 0.05;
+  trays.forEach(g => {
+    const u = g.userData;
+    if (S.belt){ u.x += BELT_V * dt; if (u.x > BELT_X1 - 0.6){ u.x -= NTRAY * TRAY_SP; u.treated = false; } }
+    g.position.set(u.x, BELT_Y + 0.01, 0);
+    const k = Math.max(0.001, Math.min(1, Math.min((u.x - BELT_X0 + 0.2) / 0.6, (BELT_X1 - 0.4 - u.x) / 0.6)));
+    g.scale.set(k, k, k);
+    const under = camBeam(u.x);
+    if (under && S.beam){ u.treated = true; u.ok = ST.mn >= ALVO; }
+    if (u.treated){ const c = pal(ST.mn / (DS * 1.2)); u.top.material.color.setRGB(c[0], c[1], c[2]); u.flag.material.color.set(u.ok ? 0x3fe08f : 0xff6b5b); }
+    else { u.top.material.color.set(0xc79a4a); u.flag.material.color.set(0x5c657c); }
+    if (under && S.beam) u.top.material.color.lerp(cBeam, 0.5);
+  });
+
+  /* grãos caindo do silo */
+  { const a = fall.pts.geometry.attributes.position.array;
+    for (let i = 0; i < fall.N; i++){ const p = fall.d[i]; if (S.belt){ p.u += dt * 1.2; if (p.u > 1) p.u -= 1; }
+      a[i*3] = -8.0 + p.dx; a[i*3+1] = 1.75 - p.u * 0.95; a[i*3+2] = p.dz; }
+    fall.pts.geometry.attributes.position.needsUpdate = true; fall.pts.visible = S.belt; }
+
+  /* feixe */
+  const on = S.beam;
+  beamTop.pts.visible = on; beamBot.pts.visible = on && S.sides === 2; hornBot.visible = baseBot.visible = S.sides === 2; scanLine.visible = on;
+  if (on){
+    stepBeam(beamTop, dt, TOP_NOZZLE, trayTop);
+    if (S.sides === 2) stepBeam(beamBot, dt, BOT_NOZZLE, BELT_Y - 0.02);
+    scanLine.position.set(BEAM_X, trayTop + 0.005, Math.sin(scanT * 6) * 0.38);
   }
-  const reachCm = Math.min(rangeCm(S.E), S.T), reach = reachCm / S.T * HBLOCK;
-  beamTop.pts.visible = running; beamBot.pts.visible = running && S.sides === 2;
-  if (running){
-    stepBeam(beamTop, dt, TABLE_Y + HBLOCK + 0.12, -1, reach + 0.12);
-    if (S.sides === 2) stepBeam(beamBot, dt, TABLE_Y - 0.02, +1, reach + 0.02);
-  }
-  headTop.userData.glow.material.opacity = running ? 0.9 : 0;
-  headBot.userData.glow.material.opacity = running && S.sides === 2 ? 0.9 : 0;
-  headBot.visible = S.sides === 2 || !running;
+  hornGlow.material.opacity = on ? 0.9 : 0; lampCell.intensity = on ? 1.1 + 0.2 * Math.sin(scanT * 10) : 0.6;
+  const blink = on ? (0.5 + 0.5 * Math.sin(scanT * 7)) : 0;
+  warnLamp.material.color.setRGB(on ? 0.35 + 0.65 * blink : 0.25, on ? 0.05 + 0.1 * blink : 0.05, 0.05); warnLight.intensity = on ? 1.6 * blink : 0;
+  if (lastBeam !== on){ lastBeam = on; sign.redraw(); }
+  if (hum) hum.g.gain.value = S.sound ? (on ? 0.035 : 0.012) * (S.belt ? 1 : 0.6) : 0;
   bugs.forEach((b, i) => { if (i < ny && b.alive){ b.m.position.x = b.x + Math.sin(now / 400 + b.ph) * 0.012; b.m.rotation.y = Math.sin(now / 300 + b.ph) * 0.5; } });
 
   /* raios, hover e marcador de teleporte */
-  const hovers = new Map(); let floorPt = null;
+  const hovers = new Map(); let spot = null, spotOk = true, padHover = null;
   const doCast = (o, d, line) => {
     const h = castFrom(o, d);
-    if (line){ line.scale.z = h ? Math.max(0.1, h.dist) : 3; line.material.color.set(h && h.kind === 'panel' && h.idx >= 0 ? 0xffe066 : 0xffffff); }
+    if (line) line.scale.z = h ? Math.max(0.1, h.dist) : 4;
+    const hot = h && ((h.kind === 'panel' && h.idx >= 0) || h.kind === 'pad');
+    if (line) line.material.color.set(hot ? 0xffe066 : 0xffffff);
     if (h && h.kind === 'panel' && h.idx >= 0) hovers.set(h.P, h.idx);
-    if (h && h.kind === 'floor' && hitFloorValid(h.point)) floorPt = h.point;
+    if (h && h.kind === 'pad') padHover = h.pad;
+    if (h && h.kind === 'floor'){ spot = h.point; spotOk = validSpot(h.point); }
     return h;
   };
   if (pres){
-    controllers.forEach(c => {
-      c.updateMatrixWorld(true);
-      tmpM.identity().extractRotation(c.matrixWorld);
-      tmpO.setFromMatrixPosition(c.matrixWorld); tmpD.set(0, 0, -1).applyMatrix4(tmpM);
-      c.userData.hit = doCast(tmpO.clone(), tmpD.clone(), c.getObjectByName('ray'));
-    });
-  } else {
-    ray.setFromCamera(mouse, camera);
-    mouseHit = doCast(ray.ray.origin.clone(), ray.ray.direction.clone(), null);
-  }
+    controllers.forEach(c => { c.updateMatrixWorld(true); tmpM.identity().extractRotation(c.matrixWorld); tmpO.setFromMatrixPosition(c.matrixWorld); tmpD.set(0, 0, -1).applyMatrix4(tmpM);
+      c.userData.hit = doCast(tmpO.clone(), tmpD.clone(), c.getObjectByName('ray')); });
+  } else { ray.setFromCamera(mouse, camera); doCast(ray.ray.origin.clone(), ray.ray.direction.clone(), null); }
   const key = [...hovers].map(([p, i]) => panels.indexOf(p) + ':' + i).join(',');
-  if (key !== lastHoverKey){
-    lastHoverKey = key;
-    panels.forEach(p => { const i = hovers.has(p) ? hovers.get(p) : -1; if (p.hover !== i){ p.hover = i; p.redraw(); } });
-  }
-  tpMarker.visible = !!floorPt;
-  if (floorPt) tpMarker.position.set(floorPt.x, 0.03, floorPt.z);
-  cv.style.cursor = hovers.size ? 'pointer' : (floorPt ? 'cell' : 'grab');
+  if (key !== lastHoverKey){ lastHoverKey = key; panels.forEach(p => { const i = hovers.has(p) ? hovers.get(p) : -1; if (p.hover !== i){ p.hover = i; p.redraw(); } }); }
+  pads.forEach(m => { m.scale.setScalar(padHover === m.userData.pad ? 1.25 : 1); });
+  tpMarker.visible = !!spot; if (spot){ tpMarker.position.set(spot.x, 0.03, spot.z); tpMarker.material.color.set(spotOk ? 0x4db8ff : 0xff6b5b); }
+  cv.style.cursor = (hovers.size || padHover) ? 'pointer' : (spot ? (spotOk ? 'cell' : 'not-allowed') : 'grab');
 
   renderer.render(scene, camera);
 }
 renderer.setAnimationLoop(frame_);
 
-/* início */
-buildBlock(); placeBugs(); paintBlock(0); redrawAll();
-
-/* ganchos para teste automático */
-window.__lab = { S, LEVELS, stats, setE, setSides, setT, setLevel, startRun, resetRun, panels, get ny(){ return ny; }, get bugsAlive(){ return bugs.filter((b, i) => i < ny && b.alive).length; }, teleportTo, dolly };
+buildBlock(); refresh();
+window.__lab = { setView(y, p){ yaw = y; pitch = p; }, S, act, refresh, panels, pads, teleportTo, dolly, get ST(){ return ST; }, trays, validSpot };
 })();
 </script>
 </body>
