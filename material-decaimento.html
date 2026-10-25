@@ -5,8 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Meia-vida: o acaso que vira regra — material de apoio</title>
 <meta name="description" content="Material de apoio simples e videoaula sobre Decaimento radioativo. Texto para quem está começando e uma parte extra com equações e unidades.">
-<style>
-:root{
+<style>:root{
   --bg:#f3f5fb; --card:rgba(255,255,255,.82); --card-solid:#ffffff; --field:#eef1f9;
   --ink:#0e1525; --muted:#475268; --line:rgba(14,21,37,.12); --track:rgba(14,21,37,.14);
   --accent:#2350f0; --accent2:#7a3cff; --accent-ink:#ffffff; --glow1:rgba(35,80,240,.16); --glow2:rgba(122,60,255,.12);
@@ -182,7 +181,6 @@ footer{padding:1rem;text-align:center;color:var(--muted);font-size:.76rem}
   .modes .k{display:none}
   .modes button small{display:none}
 }
-
 </style>
 <style>
 .read{max-width:780px;margin:0 auto;padding:1rem .9rem 3rem}
@@ -214,6 +212,21 @@ dd{margin:.1rem 0 0;color:var(--muted)}
 details.more summary{cursor:pointer;font-weight:750;font-size:1.1rem}
 details.more table{margin:.5rem 0}
 .src ul{font-size:.85rem;padding-left:1.1rem;color:var(--muted)} .src li{font-size:.85rem;line-height:1.5}
+.read table{width:100%;border-collapse:collapse;margin:.6rem 0;font-size:.95rem}
+.read th,.read td{border:1px solid var(--line);padding:.45rem .6rem;text-align:left;vertical-align:top}
+.read th{background:var(--field)} .read td.m{font-variant-numeric:tabular-nums;white-space:nowrap}
+.part{font-size:1.5rem;margin:2.6rem 0 .6rem;padding-top:1rem;border-top:2px solid var(--line)}
+.lvl{display:inline-block;font-size:.7rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);border:1px solid var(--accent);border-radius:99px;padding:.1rem .55rem;vertical-align:middle;margin-left:.3rem}
+.toc{margin-top:1.4rem;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:.8rem 1.2rem}
+.toc ol{margin:.4rem 0 0;padding-left:1.2rem}
+.callout{border-left:5px solid var(--accent);background:var(--field);border-radius:12px;padding:.8rem 1rem;margin:.8rem 0;font-size:1.05rem}
+.callout.label{text-align:center;letter-spacing:.03em;border:2px solid var(--ink)}
+.note{font-size:.88rem;color:var(--muted)}
+details.deep,details.faq{margin:.7rem 0;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:.7rem 1rem}
+details.deep summary,details.faq summary{cursor:pointer;font-weight:700}
+figure.radura{margin:1rem auto;text-align:center;color:var(--ink)} figure.radura svg{width:150px;height:150px} figure.radura figcaption{font-size:.85rem;color:var(--muted)}
+ul.time{padding-left:1.1rem}
+@media (max-width:600px){.read td.m{white-space:normal}.read table{font-size:.85rem}.read th,.read td{padding:.35rem .4rem}}
 .btn.big{display:inline-block;text-decoration:none;margin-top:.6rem}
 @media (max-width:960px){header.top p{display:none}}
 </style>
@@ -299,8 +312,7 @@ details.more table{margin:.5rem 0}
 </main>
 <footer>Cherenkov · simulador educacional · material de apoio</footer>
 
-<script>
-"use strict";
+<script>"use strict";
 /* Biblioteca compartilhada dos simuladores: tema, formatação, etiquetas de tipo,
    controles deslizantes e palco 3D (câmera orbital própria, rótulos HTML). */
 const Lab = (() => {
@@ -457,7 +469,6 @@ const Lab = (() => {
 
   return { $, $$, num, sci, badge, row, TYPES, theme, slider, stage, setP };
 })();
-
 </script>
 <script src="videos.js"></script>
 <script>

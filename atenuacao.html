@@ -5,8 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Atenuação de fótons e blindagem — simulador 3D</title>
 <meta name="description" content="Dispare fótons contra uma parede de concreto, chumbo, ferro, alumínio ou água e compare o sorteio de Monte Carlo com a lei exponencial.">
-<style>
-:root{
+<style>:root{
   --bg:#f3f5fb; --card:rgba(255,255,255,.82); --card-solid:#ffffff; --field:#eef1f9;
   --ink:#0e1525; --muted:#475268; --line:rgba(14,21,37,.12); --track:rgba(14,21,37,.14);
   --accent:#2350f0; --accent2:#7a3cff; --accent-ink:#ffffff; --glow1:rgba(35,80,240,.16); --glow2:rgba(122,60,255,.12);
@@ -182,7 +181,6 @@ footer{padding:1rem;text-align:center;color:var(--muted);font-size:.76rem}
   .modes .k{display:none}
   .modes button small{display:none}
 }
-
 </style>
 <style>.stage{height:calc(100vh - 6.4rem)}</style>
 </head>
@@ -249,8 +247,7 @@ footer{padding:1rem;text-align:center;color:var(--muted);font-size:.76rem}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>window.THREE||document.write('<script src="assets/three.min.js"><\/script>')</script>
-<script>
-"use strict";
+<script>"use strict";
 /* Biblioteca compartilhada dos simuladores: tema, formatação, etiquetas de tipo,
    controles deslizantes e palco 3D (câmera orbital própria, rótulos HTML). */
 const Lab = (() => {
@@ -407,7 +404,6 @@ const Lab = (() => {
 
   return { $, $$, num, sci, badge, row, TYPES, theme, slider, stage, setP };
 })();
-
 </script>
 <script>
 "use strict";
