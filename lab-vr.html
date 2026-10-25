@@ -32,7 +32,7 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
   <button class="pill pri" id="vr" type="button" disabled>Verificando VR…</button>
 </div>
 <div class="hud bot">
-  <div class="help" id="help"><b>Modo tela:</b> arraste para olhar · clique nos botões e nos círculos numerados do chão · roda do mouse para andar. <b>No Quest:</b> aponte o controle e aperte o gatilho (botão = aperta, chão = anda); joystick gira.</div>
+  <div class="help" id="help"><b>Modo tela:</b> arraste para olhar · clique nos botões e nos círculos numerados do chão · roda do mouse para andar. <b>No Quest:</b> aponte o controle e aperte o gatilho (botão = aperta, chão = anda); joystick gira. <b>Assistente:</b> aperte ▶ Explicar nas placas.</div>
 </div>
 <div id="msg"><div><h2>Não foi possível iniciar o 3D</h2><p>O navegador não conseguiu criar a cena.</p></div></div>
 
@@ -165,11 +165,11 @@ for (let x = BELT_X0 + 0.3; x < BELT_X1; x += 1.7){ box(0.08, BELT_Y - 0.15, 0.0
 const SILO = { x: -9.6, z: -3.0 };
 cyl(1.3, 1.3, 6, std(0xb9c2d4, { metalness: 0.4, roughness: 0.5 }), SILO.x, 4.2, SILO.z, 32);
 cyl(1.3, 0.12, 1.7, std(0xa7b1c6, { metalness: 0.4, roughness: 0.5 }), SILO.x, 1.0 + 0.0, SILO.z, 32);
-box(2.2, 0.16, 0.16, lam(0x8e99b0), SILO.x + 1.1, 1.9, SILO.z + 0.0);
-box(0.16, 0.16, 3.0, lam(0x8e99b0), SILO.x + 2.2, 1.9, SILO.z + 1.5);
-box(1.2, 0.16, 0.16, lam(0x8e99b0), SILO.x + 2.7, 1.9, SILO.z + 3.0);
-cyl(0.09, 0.09, 1.1, lam(0x8e99b0), -8.0, 1.35, 0.0, 12);
-cyl(0.5, 0.5, 0.35, lam(0x8e99b0), -8.0, 1.95, 0.0, 16);
+(function(){ const a = new THREE.Vector3(-9.4, 1.5, -2.8), b = new THREE.Vector3(-8.0, 1.75, -0.1), len = a.distanceTo(b);
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, len, 12), lam(0x8e99b0)); m.position.copy(a).add(b).multiplyScalar(0.5);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize()); scene.add(m); })();
+cyl(0.1, 0.1, 0.5, lam(0x8e99b0), -8.0, 1.5, 0.0, 12);
+cyl(0.32, 0.32, 0.18, lam(0x8e99b0), -8.0, 1.8, 0.0, 16);
 
 /* --- sala blindada (a célula) --- */
 const CELL = { x0: -2.7, x1: 4.7, z0: -3.1, z1: 3.1, ix0: -1.8, ix1: 3.8, iz0: -2.2, iz1: 2.2, H: 3.7, cx: 1.0 };
@@ -357,36 +357,37 @@ function radura(ctx, cx, cy, size, col){
 /* placa informativa: número, título, parágrafos e rodapé opcional */
 function board(n, title, paras, extra, w, h, pos, rot){
   const pw = Math.round(w * 640), ph = Math.round(h * 640);
-  return Panel(w, h, pw, ph, (ctx) => {
+  return Panel(w, h, pw, ph, (ctx, B) => {
     card(ctx, pw, ph);
     ctx.fillStyle = C.acc; ctx.font = 'bold 28px system-ui, sans-serif'; ctx.fillText(n, 38, 62);
     ctx.fillStyle = C.ink; ctx.font = 'bold 42px system-ui, sans-serif'; let y = wrap(ctx, title, 38, 116, pw - 76, 48) + 4;
     ctx.fillStyle = C.mut; ctx.font = '28px system-ui, sans-serif';
     paras.forEach(t => { y = wrap(ctx, t, 38, y + 10, pw - 76, 37); });
     if (extra) extra(ctx, y, pw, ph);
+    B(38, ph - 84, 300, 60, '▶ Explicar', { on: true, col: C.ok, hot: '#7dffbf', font: 'bold 28px' }, () => explain(parseInt(n.replace(/\D/g, ''), 10)));
   }, pos, rot);
 }
 
 board('ESTAÇÃO 2', 'Recebimento: o silo', [
   'Os grãos saem do silo e caem em bandejas que seguem pela esteira.',
   'A geometria desta fábrica é de demonstração, não é de uma instalação real.'
-], (ctx, y, pw, ph) => { tag(ctx, 38, ph - 76, 'ilustração conceitual', C.warn); }, 1.0 * 1.2, 0.95, [-6.9, 1.95, -1.9], { face: [-6.9, 8] });
+], (ctx, y, pw, ph) => { tag(ctx, 38, ph - 136, 'ilustração conceitual', C.warn); }, 1.0 * 1.2, 0.95, [-6.9, 1.95, -1.9], { face: [-6.9, 8] });
 board('ESTAÇÃO 3', 'A camada de grãos é fina', [
   'O elétron perde energia aos poucos e para. Em água, um elétron de 10 MeV vai cerca de 5 cm (tabela NIST ESTAR).',
   'Por isso a camada é fina e, muitas vezes, irradiada dos dois lados. Na bancada você vê o que acontece dentro dela, ampliada 5 vezes.'
-], (ctx, y, pw, ph) => { let x = 38; x = tag(ctx, x, ph - 76, 'alcance: referência NIST', C.ok); tag(ctx, x, ph - 76, 'densidade: suposta', C.warn); }, 1.3, 1.15, [-4.1, 1.95, -1.9], { face: [-4.1, 8] });
+], (ctx, y, pw, ph) => { let x = 38; x = tag(ctx, x, ph - 136, 'alcance: referência NIST', C.ok); tag(ctx, x, ph - 136, 'densidade: suposta', C.warn); }, 1.3, 1.15, [-4.1, 1.95, -1.9], { face: [-4.1, 8] });
 board('ESTAÇÃO 4', 'Acelerador e sala blindada', [
   'Dentro da sala, um acelerador produz elétrons rápidos e um ímã os faz varrer a largura da esteira. As paredes de concreto são grossas para proteger quem está do lado de fora.',
   'Com o feixe ligado, ninguém entra. A norma brasileira (RDC 21/2001) aceita elétrons de até 10 MeV, raios X de até 5 MeV e gama de cobalto-60 ou césio-137.'
-], (ctx, y, pw, ph) => { tag(ctx, 38, ph - 76, 'feixe e geometria: ilustração', C.warn); }, 1.6, 1.4, [3.75, 1.95, 3.2], { face: [3.75, 9] });
-board('ESTAÇÃO 7', 'Expedição: rótulo e regras', [
+], (ctx, y, pw, ph) => { tag(ctx, 38, ph - 136, 'feixe e geometria: ilustração', C.warn); }, 1.6, 1.4, [3.75, 1.95, 3.2], { face: [3.75, 9] });
+board('ESTAÇÃO 6', 'Expedição: rótulo e regras', [
   'No Brasil, a embalagem deve trazer, no painel principal, a frase:'
 ], (ctx, y, pw, ph) => {
   ctx.fillStyle = C.ink; ctx.font = 'bold 28px system-ui, sans-serif'; ctx.strokeStyle = C.ink; ctx.lineWidth = 3; rr(ctx, 38, y + 6, pw - 76, 64, 10); ctx.stroke();
   ctx.textAlign = 'center'; ctx.fillText('ALIMENTO TRATADO POR PROCESSO DE IRRADIAÇÃO', pw / 2, y + 48); ctx.textAlign = 'left'; y += 96;
   ctx.fillStyle = C.mut; ctx.font = '27px system-ui, sans-serif';
   ['ANVISA regula o alimento irradiado (RDC 21/2001).', 'CNEN autoriza as fontes e as instalações.', 'A vigilância sanitária emite o alvará.', 'O MAPA cuida do controle fitossanitário.'].forEach(t => { y = wrap(ctx, '• ' + t, 38, y + 6, pw - 76, 34); });
-  tag(ctx, 38, ph - 66, 'fonte: texto da RDC 21/2001', C.ok);
+  tag(ctx, 38, ph - 136, 'fonte: texto da RDC 21/2001', C.ok);
 }, 1.35, 1.35, [9.0, 1.95, -1.9], { face: [9.0, 8] });
 Panel(0.9, 0.5, 900, 500, (ctx) => {   // rótulo e radura no palete
   card(ctx, 900, 500, '#3fe08f'); radura(ctx, 150, 250, 190, '#7dffbf');
@@ -408,7 +409,7 @@ const sign = Panel(3.0, 0.5, 1500, 250, (ctx) => {
 Panel(0.96, 0.96, 768, 768, (ctx, B) => {
   const W = 768, R = rangeCm(S.E), okR = R >= S.T * (S.sides === 2 ? 0.5 : 1);
   card(ctx, W, 768);
-  ctx.fillStyle = C.acc; ctx.font = 'bold 30px system-ui, sans-serif'; ctx.fillText('ESTAÇÃO 5 · SALA DE CONTROLE', 38, 60);
+  ctx.fillStyle = C.acc; ctx.font = 'bold 30px system-ui, sans-serif'; ctx.fillText('SALA DE CONTROLE', 38, 60);
   ctx.fillStyle = C.mut; ctx.font = 'bold 27px system-ui, sans-serif'; ctx.fillText('Feixe de elétrons', 38, 112);
   B(38, 126, 330, 80, 'LIGADO', { on: S.beam, col: '#ff8a7a', hot: '#ffb0a4' }, () => act.beam(true));
   B(388, 126, 342, 80, 'DESLIGADO', { on: !S.beam }, () => act.beam(false));
@@ -444,9 +445,9 @@ Panel(0.9, 0.78, 720, 624, (ctx) => {
 
 /* --- visita guiada --- */
 const STATIONS = [
-  { n: 1, nome: 'Sala de controle', x: 1.0, z: 5.5 }, { n: 2, nome: 'Silo e recebimento', x: -6.9, z: 2.2 },
-  { n: 3, nome: 'Esteira e camada fina', x: -4.1, z: 2.2 }, { n: 4, nome: 'Acelerador e sala blindada', x: 3.9, z: 5.2 },
-  { n: 5, nome: 'Bancada de dosimetria', x: -5.3, z: 6.3 }, { n: 6, nome: 'Expedição e rótulo', x: 9.0, z: 2.2 }
+  { n: 1, nome: 'Sala de controle', x: 1.0, z: 5.5, lx: 1.0, lz: 2.6 }, { n: 2, nome: 'Silo e recebimento', x: -6.9, z: 2.2, lx: -7.4, lz: -1.9 },
+  { n: 3, nome: 'Esteira e camada fina', x: -4.1, z: 2.2, lx: -4.1, lz: -1.9 }, { n: 4, nome: 'Acelerador e sala blindada', x: 3.9, z: 5.2, lx: 3.6, lz: 3.2 },
+  { n: 5, nome: 'Bancada de dosimetria', x: -5.3, z: 6.3, lx: -5.3, lz: 4.6 }, { n: 6, nome: 'Expedição e rótulo', x: 9.0, z: 2.2, lx: 9.6, lz: -1.9 }
 ];
 Panel(0.96, 0.96, 768, 768, (ctx, B) => {
   card(ctx, 768, 768);
@@ -454,18 +455,19 @@ Panel(0.96, 0.96, 768, 768, (ctx, B) => {
   ctx.fillStyle = C.ink; ctx.font = 'bold 40px system-ui, sans-serif'; ctx.fillText('Fábrica de irradiação de grãos', 38, 112);
   ctx.fillStyle = C.mut; ctx.font = '25px system-ui, sans-serif';
   let y = wrap(ctx, 'Aponte e aperte o gatilho nos botões abaixo, ou nos círculos numerados do chão, para ir até cada estação. Joystick: gira.', 38, 152, 690, 32);
-  STATIONS.forEach((s, i) => { B(38 + (i % 2) * 350, y + 8 + Math.floor(i / 2) * 82, 340, 72, s.n + ' · ' + s.nome, { font: 'bold 23px' }, () => teleportTo({ x: s.x, z: s.z })); });
-  y += 8 + 3 * 82 + 16;
+  STATIONS.forEach((s, i) => { B(38 + (i % 2) * 350, y + 8 + Math.floor(i / 2) * 76, 340, 66, s.n + ' · ' + s.nome, { font: 'bold 23px' }, () => goStation(s)); });
+  y += 8 + 3 * 76 + 16;
   ctx.fillStyle = C.ink; ctx.font = 'bold 24px system-ui, sans-serif'; ctx.fillText('O que é dado e o que é ilustração', 38, y + 14);
   tag(ctx, 38, y + 30, 'alcance do elétron: NIST ESTAR', C.ok);
   tag(ctx, 38, y + 76, 'forma da curva de dose: ilustrativa', C.warn);
   tag(ctx, 38, y + 122, 'fábrica, feixe, metas e doses: demonstração', C.warn);
+  B(38, 690, 692, 58, '▶ Explicar a sala de controle', { on: true, col: C.ok, hot: '#7dffbf', font: 'bold 28px' }, () => explain(1));
 }, [-0.55, 1.1, 3.85], { face: [1.0, 9], tilt: -0.9 });
 
 /* --- bancada --- */
-Panel(0.9, 0.9, 720, 720, (ctx) => {
+Panel(0.9, 0.9, 720, 720, (ctx, B) => {
   card(ctx, 720, 720);
-  ctx.fillStyle = C.acc; ctx.font = 'bold 28px system-ui, sans-serif'; ctx.fillText('ESTAÇÃO 6 · BANCADA DE DOSIMETRIA', 36, 58);
+  ctx.fillStyle = C.acc; ctx.font = 'bold 28px system-ui, sans-serif'; ctx.fillText('ESTAÇÃO 5 · BANCADA DE DOSIMETRIA', 36, 58);
   ctx.fillStyle = C.ink; ctx.font = 'bold 40px system-ui, sans-serif'; ctx.fillText('Dentro da camada de grãos', 36, 112);
   ctx.fillStyle = C.mut; ctx.font = '26px system-ui, sans-serif';
   let y = wrap(ctx, 'Este corte mostra a dose em cada camada, com os ajustes do console (' + S.E + ' MeV, ' + S.sides + ' lado' + (S.sides > 1 ? 's' : '') + ', ' + S.T + ' cm), ampliado 5 vezes.', 36, 156, 650, 34);
@@ -475,13 +477,248 @@ Panel(0.9, 0.9, 720, 720, (ctx) => {
   ctx.fillStyle = C.ink; ctx.font = 'bold 26px system-ui, sans-serif'; ctx.fillText('Pontinhos vermelhos', 36, y);
   ctx.fillStyle = C.mut; ctx.font = '26px system-ui, sans-serif'; y = wrap(ctx, 'são insetos (demonstração) que sobrevivem onde a dose fica abaixo da meta. Cinza: já inativados.', 36, y + 36, 650, 34);
   wrap(ctx, 'Mude a energia, os lados e a espessura no console e veja as cores mudarem. Dica: troque para 1 lado.', 36, y + 18, 650, 34);
-  tag(ctx, 36, 660, 'curva de dose: ilustrativa', C.warn);
+  B(36, 646, 300, 58, '▶ Explicar', { on: true, col: C.ok, hot: '#7dffbf', font: 'bold 28px' }, () => explain(5));
+  tag(ctx, 360, 656, 'curva: ilustrativa', C.warn);
 }, [BENCH.x - 1.2, 1.35, BENCH.z + 0.1], { face: [BENCH.x - 0.4, 8] });
 Panel(1.0, 0.36, 800, 288, (ctx) => {   // placa de segurança
   ctx.fillStyle = C.bg; ctx.fillRect(0, 0, 800, 288); ctx.fillStyle = '#ffc233'; ctx.fillRect(0, 0, 800, 12);
   trefoil(ctx, 110, 150, 70, '#ffc233'); ctx.fillStyle = C.ink; ctx.font = 'bold 40px system-ui, sans-serif'; ctx.fillText('ÁREA DE RADIAÇÃO', 210, 140);
   ctx.fillStyle = C.mut; ctx.font = '28px system-ui, sans-serif'; ctx.fillText('Sala fechada com o feixe ligado', 212, 190);
 }, [-1.75, 1.95, 3.14], { face: [-1.75, 9] });
+
+/* ============================================================
+   ASSISTENTE VIRTUAL: voz (síntese do navegador) + caixa de legenda
+   Os textos usam só o que já está na fábrica (NIST ESTAR, RDC 21/2001)
+   e os valores atuais do console. Sem voz em português, a legenda
+   avança sozinha, no ritmo de leitura.
+   ============================================================ */
+const AS = { open: false, st: 1, sents: [], cur: 0, speaking: false, voiceOn: true, noVoice: false, token: 0, timer: null, wd: null };
+const STN_NOME = { 1: 'Sala de controle', 2: 'Silo e recebimento', 3: 'Esteira e camada fina', 4: 'Acelerador e sala blindada', 5: 'Bancada de dosimetria', 6: 'Expedição e rótulo' };
+const onoff = v => v ? 'ligado' : 'desligado';
+const ladosTxt = n => n + (n > 1 ? ' lados' : ' lado');
+const vivosNow = () => bugs.filter((b, i) => i < ny && b.alive).length;
+
+const SCRIPT = {
+  1: () => [
+    'Você está na sala de controle. Daqui o operador enxerga a sala blindada pela janela de vidro.',
+    'No painel, você liga e desliga o feixe de elétrons e a esteira, e escolhe a energia, os lados irradiados e a espessura da camada de grãos.',
+    'Agora o feixe está ' + onoff(S.beam) + ', com ' + S.E + ' MeV, ' + ladosTxt(S.sides) + ' e camada de ' + S.T + ' cm.',
+    S.beam ? 'O monitor mostra que a menor dose do lote é ' + f1(ST.mn) + ' Gy e a maior é ' + f1(ST.mx) + ' Gy.' : 'Com o feixe desligado, as bandejas passam sem receber dose. O monitor mostra o que aconteceria com estes ajustes: menor dose de ' + f1(ST.mn) + ' Gy e maior de ' + f1(ST.mx) + ' Gy.',
+    ST.mn >= ALVO ? 'A menor dose passa da meta didática de ' + ALVO + ' Gy: o lote ficaria dentro da meta.' : 'A menor dose fica abaixo da meta didática de ' + ALVO + ' Gy: os insetos desse ponto sobreviveriam.',
+    'O que decide a qualidade é sempre o ponto que recebe menos dose. Estas doses e a meta são valores de demonstração.'
+  ],
+  2: () => [
+    'Esta é a estação de recebimento. Os grãos saem do silo e caem em bandejas que seguem pela esteira.',
+    'Repare que as bandejas são rasas: a camada de grãos é fina de propósito. Na próxima estação você vai ver por quê.',
+    'A geometria desta fábrica é de demonstração. Ela não representa uma instalação real.'
+  ],
+  3: () => {
+    const R = rangeCm(S.E);
+    return [
+      'Aqui as bandejas andam em direção à sala blindada. A camada de grãos é fina porque o elétron perde energia aos poucos e para.',
+      'Em água, um elétron de 10 MeV vai cerca de 5 cm, segundo a tabela NIST ESTAR. Como os grãos são menos densos que a água, o alcance é um pouco maior.',
+      'Com ' + S.E + ' MeV, o elétron alcança cerca de ' + f1(R) + ' cm no grão. Sua camada tem ' + S.T + ' cm.',
+      S.sides === 2
+        ? (R >= S.T / 2 ? 'Como a irradiação é pelos dois lados, os feixes cobrem a camada inteira.' : 'Mesmo irradiando pelos dois lados, o feixe não alcança o meio da camada: sobra uma região sem dose.')
+        : (R >= S.T ? 'Com um lado só, o feixe chega ao fundo da camada.' : 'Com um lado só, o feixe não chega ao fundo: parte do lote fica sem dose. Experimente irradiar pelos dois lados.')
+    ];
+  },
+  4: () => [
+    'Dentro da sala blindada fica o acelerador de elétrons. Ele produz elétrons rápidos, e um ímã faz o feixe varrer a largura da esteira.',
+    'As paredes de concreto são grossas para proteger quem está do lado de fora. Por isso, com o feixe ligado, ninguém entra.',
+    'A norma brasileira, a RDC 21 de 2001, aceita raios gama de cobalto-60 ou césio-137, raios X de até 5 MeV e elétrons de até 10 MeV.',
+    'Agora o feixe está ' + onoff(S.beam) + (S.beam ? ', e a luz de aviso está piscando.' : '. Você pode entrar na sala.'),
+    'O brilho do feixe que você vê é só uma ilustração.'
+  ],
+  5: () => [
+    'Esta bancada mostra o interior da camada de grãos, ampliada cinco vezes. As cores indicam a dose: roxo é pouca e amarelo é muita.',
+    'Com ' + S.E + ' MeV e ' + ladosTxt(S.sides) + ', a menor dose é ' + f1(ST.mn) + ' Gy e a maior é ' + f1(ST.mx) + ' Gy. ' + (ST.dur === null ? 'Há grãos sem nenhuma dose, então a razão entre elas é indefinida.' : 'A razão entre elas, o DUR, é ' + f2(ST.dur) + '.'),
+    'Os pontos vermelhos são insetos de demonstração que sobrevivem onde a dose fica abaixo da meta. Agora há ' + vivosNow() + ' de ' + ny + ' vivos.',
+    'Experimente trocar para um lado só no console e veja o fundo da camada ficar sem dose.'
+  ],
+  6: () => [
+    'Esta é a expedição. Os lotes tratados saem da sala e vão para o palete.',
+    'No Brasil, a embalagem deve trazer, no painel principal, a frase: alimento tratado por processo de irradiação.',
+    'A ANVISA regula o alimento irradiado, a CNEN autoriza as fontes e as instalações, a vigilância sanitária emite o alvará e o MAPA cuida do controle fitossanitário.',
+    'O símbolo da radura é internacional, mas o texto da RDC 21 de 2001 que consultamos exige só a frase escrita.'
+  ]
+};
+/* Roteiros FIXOS: o texto que você grava em estacao-N.mp3. Não mudam com o console. */
+const FIXO = {
+  1: [
+    'Você está na sala de controle. Daqui o operador enxerga a sala blindada pela janela de vidro.',
+    'No painel, você liga e desliga o feixe de elétrons e a esteira, e escolhe a energia, os lados irradiados e a espessura da camada de grãos.',
+    'O monitor ao lado mostra a menor dose do lote, a maior dose e a razão entre elas.',
+    'O que decide a qualidade é sempre o ponto que recebe menos dose: se ele ficar abaixo da meta, os insetos ali sobrevivem.',
+    'Lembre que as doses e a meta desta demonstração são valores didáticos, e não valores de norma.'
+  ],
+  2: [
+    'Esta é a estação de recebimento. Os grãos saem do silo e caem em bandejas que seguem pela esteira.',
+    'Repare que as bandejas são rasas: a camada de grãos é fina de propósito. Na próxima estação você vai ver por quê.',
+    'A geometria desta fábrica é de demonstração. Ela não representa uma instalação real.'
+  ],
+  3: [
+    'Aqui as bandejas andam em direção à sala blindada. A camada de grãos é fina porque o elétron perde energia aos poucos e para.',
+    'Em água, um elétron de 10 MeV vai cerca de 5 cm, segundo a tabela NIST ESTAR. Como os grãos são menos densos que a água, o alcance é um pouco maior.',
+    'Por isso, muitas vezes se irradia a camada pelos dois lados: assim os feixes cobrem a espessura inteira.',
+    'No console, experimente trocar entre um lado e dois lados, e mudar a energia, e veja se o feixe chega ao fundo.'
+  ],
+  4: [
+    'Dentro da sala blindada fica o acelerador de elétrons. Ele produz elétrons rápidos, e um ímã faz o feixe varrer a largura da esteira.',
+    'As paredes de concreto são grossas para proteger quem está do lado de fora. Por isso, com o feixe ligado, ninguém entra.',
+    'A norma brasileira, a RDC 21 de 2001, aceita raios gama de cobalto-60 ou césio-137, raios X de até 5 MeV e elétrons de até 10 MeV.',
+    'O brilho do feixe que você vê é só uma ilustração.'
+  ],
+  5: [
+    'Esta bancada mostra o interior da camada de grãos, ampliada cinco vezes. As cores indicam a dose: roxo é pouca e amarelo é muita.',
+    'O painel do lado mostra os valores de menor dose, maior dose e a razão entre elas, que chamamos de DUR.',
+    'Os pontos vermelhos são insetos de demonstração que sobrevivem onde a dose fica abaixo da meta.',
+    'Experimente trocar para um lado só no console e veja o fundo da camada ficar sem dose.'
+  ],
+  6: [
+    'Esta é a expedição. Os lotes tratados saem da sala e vão para o palete.',
+    'No Brasil, a embalagem deve trazer, no painel principal, a frase: alimento tratado por processo de irradiação.',
+    'A ANVISA regula o alimento irradiado, a CNEN autoriza as fontes e as instalações, a vigilância sanitária emite o alvará e o MAPA cuida do controle fitossanitário.',
+    'O símbolo da radura é internacional, mas o texto da RDC 21 de 2001 que consultamos exige só a frase escrita.'
+  ]
+};
+function sp(t){   // ajuda a pronúncia da síntese de voz
+  return t.replace(/(\d+(?:,\d+)?) MeV/g, '$1 mega elétron-volts').replace(/\bMeV\b/g, 'mega elétron-volts')
+    .replace(/(\d+(?:,\d+)?) Gy/g, '$1 gray').replace(/\bGy\b/g, 'gray').replace(/(\d+(?:,\d+)?) cm/g, '$1 centímetros')
+    .replace(/\bDUR\b/g, 'D U R').replace(/\bNIST ESTAR\b/g, 'N I S T, ESTAR').replace(/\bCNEN\b/g, 'C N E N').replace(/\bANVISA\b/g, 'Anvisa').replace(/\bMAPA\b/g, 'Mapa')
+    .replace(/cobalto-60/g, 'cobalto sessenta').replace(/césio-137/g, 'césio cento e trinta e sete');
+}
+
+/* --- caixa de legenda --- */
+const cap = Panel(1.5, 0.9, 1500, 900, (ctx, B) => {
+  card(ctx, 1500, 900, '#4db8ff');
+  ctx.fillStyle = C.acc; ctx.font = 'bold 30px system-ui, sans-serif'; ctx.fillText('ASSISTENTE CHERENKOV', 48, 64);
+  ctx.fillStyle = C.mut; ctx.font = '28px system-ui, sans-serif'; ctx.fillText('Estação ' + AS.st + ' · ' + STN_NOME[AS.st], 48, 104);
+  // texto com a frase atual em destaque
+  const words = [], maxW = 1404;
+  AS.sents.forEach((t, si) => t.split(' ').forEach(w => words.push({ w, si })));
+  let size = 42, lines;
+  const layout = (sz) => { ctx.font = sz + 'px system-ui, sans-serif'; const out = [[]]; let x = 0; const sp = ctx.measureText(' ').width;
+    words.forEach(o => { const wd = ctx.measureText(o.w).width; if (x + wd > maxW && out[out.length - 1].length){ out.push([]); x = 0; } out[out.length - 1].push({ ...o, wd }); x += wd + sp; });
+    return { out, sp }; };
+  let L = layout(size); while (L.out.length * (size * 1.32) > 540 && size > 28){ size -= 2; L = layout(size); }
+  ctx.font = size + 'px system-ui, sans-serif'; let y = 176;
+  L.out.forEach(line => { let x = 48; line.forEach(o => {
+    ctx.fillStyle = o.si === AS.cur ? '#ffffff' : (o.si < AS.cur ? '#8c9bbd' : '#6a7799'); ctx.fillText(o.w, x, y); x += o.wd + L.sp; }); y += size * 1.32; });
+  // linha de estado
+  ctx.fillStyle = C.mut; ctx.font = '25px system-ui, sans-serif';
+  const done = AS.cur >= AS.sents.length;
+  ctx.fillText(done ? 'Fim da explicação.' : (AS.mode === 'gravada' ? (AS.voiceOn ? 'Voz gravada.' : 'Som desligado: a legenda acompanha o áudio.') : AS.mode === 'carregando' ? 'Carregando…' : AS.noVoice ? 'Sem voz em português neste aparelho: a legenda avança no ritmo de leitura.' : (AS.voiceOn ? 'Falando…' : 'Voz desligada: a legenda avança no ritmo de leitura.')), 48, 728);
+  B(48, 764, 330, 90, done ? '✕ Fechar' : '■ Parar', { font: 'bold 34px' }, () => closeAssistant());
+  B(396, 764, 330, 90, '↻ Repetir', { font: 'bold 34px' }, () => explain(AS.st));
+  B(744, 764, 330, 90, AS.voiceOn ? 'Voz: ligada' : 'Voz: desligada', { on: AS.voiceOn, font: 'bold 32px' }, () => toggleVoice());
+  B(1092, 764, 360, 90, 'Próxima ▶', { on: true, col: C.ok, hot: '#7dffbf', font: 'bold 34px' }, () => nextStation());
+}, [0, 1.2, 0], {});
+cap.mesh.visible = false;
+
+/* --- avatar --- */
+const bot = new THREE.Group(); bot.visible = false; scene.add(bot);
+const botHome = new THREE.Vector3();
+const botBody = new THREE.Mesh(new THREE.SphereGeometry(0.11, 24, 18), new THREE.MeshStandardMaterial({ color: 0x2b7cff, emissive: 0x1b4fb0, emissiveIntensity: 0.9, roughness: 0.35, metalness: 0.3 })); bot.add(botBody);
+const botRing = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.008, 8, 40), bas(0x7fd8ff)); botRing.rotation.x = Math.PI / 2; bot.add(botRing);
+[-1, 1].forEach(sx => { const e = new THREE.Mesh(new THREE.SphereGeometry(0.017, 12, 10), bas(0xffffff)); e.position.set(sx * 0.038, 0.025, 0.095); bot.add(e); });
+const botMouth = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.01, 0.01), bas(0x04101f)); botMouth.position.set(0, -0.04, 0.104); bot.add(botMouth);
+const botAnt = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.07, 8), bas(0x9fd0ff)); botAnt.position.y = 0.145; bot.add(botAnt);
+const botTip = new THREE.Mesh(new THREE.SphereGeometry(0.014, 10, 8), bas(0xffe066)); botTip.position.y = 0.185; bot.add(botTip);
+
+function placeAssistant(){
+  dolly.updateMatrixWorld(true);
+  const hp = headPos(), q = new THREE.Quaternion(); camera.getWorldQuaternion(q);
+  const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(q); fwd.y = 0; if (fwd.lengthSq() < 1e-4) fwd.set(0, 0, -1); fwd.normalize();
+  const right = new THREE.Vector3().crossVectors(fwd, new THREE.Vector3(0, 1, 0));
+  cap.mesh.position.copy(hp).addScaledVector(fwd, 1.55); cap.mesh.position.y = Math.max(0.95, hp.y - 0.4);
+  cap.mesh.lookAt(hp.x, cap.mesh.position.y, hp.z);
+  botHome.copy(hp).addScaledVector(fwd, 1.25).addScaledVector(right, -0.98); botHome.y = hp.y - 0.15;
+  if (!bot.visible) bot.position.copy(botHome);
+}
+function animateAssistant(now){
+  if (!bot.visible) return;
+  bot.position.lerp(botHome, 0.08); bot.position.y += Math.sin(now / 500) * 0.0015;
+  const hp = headPos(); bot.lookAt(hp.x, bot.position.y, hp.z);
+  botRing.rotation.z = now / 700; botTip.material.color.set(AS.speaking && !AS.noVoice ? 0xffe066 : 0x9fd0ff);
+  botMouth.scale.y = AS.speaking ? 1 + 2.2 * Math.abs(Math.sin(now / 90)) : 1;
+}
+
+/* --- fala --- */
+function pickVoice(){
+  try { const vs = speechSynthesis.getVoices(); return vs.find(v => /^pt-BR/i.test(v.lang)) || vs.find(v => /^pt/i.test(v.lang)) || null; } catch (e){ return null; }
+}
+function cancelSpeech(){ try { if ('speechSynthesis' in window) speechSynthesis.cancel(); } catch (e){} }
+function playCurrent(){
+  const tk = AS.token;
+  if (AS.cur >= AS.sents.length){ AS.speaking = false; cap.redraw(); return; }
+  AS.speaking = true; cap.redraw();
+  const s = AS.sents[AS.cur];
+  const next = () => { if (tk !== AS.token) return; AS.cur++; playCurrent(); };
+  const timed = () => { clearTimeout(AS.timer); AS.timer = setTimeout(next, 700 + s.length * 62); };
+  if (!AS.voiceOn || AS.noVoice || !('speechSynthesis' in window)){ timed(); return; }
+  try {
+    const u = new SpeechSynthesisUtterance(sp(s)); u.lang = 'pt-BR'; u.rate = 0.98;
+    const v = pickVoice(); if (v) u.voice = v;
+    let started = false, done = false;
+    u.onstart = () => { started = true; };
+    u.onend = () => { if (done) return; done = true; clearTimeout(AS.wd); next(); };
+    u.onerror = () => { if (done) return; done = true; clearTimeout(AS.wd); if (tk === AS.token) timed(); };
+    clearTimeout(AS.wd);
+    AS.wd = setTimeout(() => { if (!started && !done && tk === AS.token){ done = true; cancelSpeech(); AS.noVoice = true; cap.redraw(); timed(); } }, 2600);
+    speechSynthesis.speak(u);
+  } catch (e){ AS.noVoice = true; timed(); }
+}
+function stopRec(){ if (AS.rec){ try { AS.rec.pause(); } catch (e){} AS.rec = null; } }
+/* Procura audio/estacao-N.mp3. Se existir, é a sua voz; senão, usa a síntese de voz do navegador. */
+function tryRecorded(n, tk, onFail){
+  let ok = false, failed = false;
+  const fail = () => { if (failed || ok) return; failed = true; clearTimeout(to); if (tk === AS.token) onFail(); };
+  const a = new Audio('audio/estacao-' + n + '.mp3'); a.preload = 'auto';
+  const to = setTimeout(fail, 3000);
+  a.addEventListener('error', fail);
+  a.addEventListener('loadedmetadata', () => {
+    if (failed || tk !== AS.token) return;
+    ok = true; clearTimeout(to);
+    AS.rec = a; AS.mode = 'gravada'; AS.sents = FIXO[n]; AS.cur = 0; AS.speaking = true; a.muted = !AS.voiceOn;
+    const total = AS.sents.reduce((t, x) => t + x.length, 0);
+    a.addEventListener('timeupdate', () => {
+      if (tk !== AS.token || !a.duration) return;
+      const pos = a.currentTime / a.duration * total; let acc = 0, idx = AS.sents.length - 1;
+      for (let i = 0; i < AS.sents.length; i++){ acc += AS.sents[i].length; if (pos <= acc){ idx = i; break; } }
+      if (idx !== AS.cur){ AS.cur = idx; cap.redraw(); }
+    });
+    a.addEventListener('ended', () => { if (tk !== AS.token) return; AS.cur = AS.sents.length; AS.speaking = false; AS.rec = null; cap.redraw(); });
+    cap.redraw();
+    const p = a.play(); if (p && p.catch) p.catch(() => { AS.rec = null; AS.mode = 'voz'; AS.sents = SCRIPT[n](); AS.cur = 0; onFail(true); });
+  });
+}
+function explain(n){
+  audio();
+  AS.token++; clearTimeout(AS.timer); clearTimeout(AS.wd); cancelSpeech(); stopRec();
+  AS.st = n; AS.sents = FIXO[n]; AS.cur = 0; AS.open = true; AS.mode = 'carregando'; AS.speaking = false;
+  placeAssistant(); cap.mesh.visible = true; bot.visible = true; bot.position.copy(botHome); cap.redraw();
+  const tk = AS.token;
+  tryRecorded(n, tk, () => {                       // sem áudio gravado: síntese de voz + texto com os valores atuais
+    if (tk !== AS.token) return;
+    AS.mode = 'voz'; AS.sents = SCRIPT[n](); AS.cur = 0;
+    try { const vs = speechSynthesis.getVoices(); if (vs.length && !vs.some(v => /^pt/i.test(v.lang))) AS.noVoice = true; } catch (e){}
+    cap.redraw();
+    setTimeout(() => { if (tk === AS.token) playCurrent(); }, 120);   // deixa o navegador liberar o cancelamento anterior
+  });
+}
+function closeAssistant(){
+  AS.token++; clearTimeout(AS.timer); clearTimeout(AS.wd); cancelSpeech(); stopRec();
+  AS.open = false; AS.speaking = false; cap.mesh.visible = false; bot.visible = false; cap.hover = -1;
+}
+function toggleVoice(){ AS.voiceOn = !AS.voiceOn; if (AS.rec){ AS.rec.muted = !AS.voiceOn; cap.redraw(); return; } if (!AS.voiceOn) cancelSpeech(); const n = AS.st; if (AS.open && AS.cur < AS.sents.length){ AS.token++; clearTimeout(AS.timer); cancelSpeech(); setTimeout(playCurrent, 120); } cap.redraw(); }
+function faceTo(x, z){
+  dolly.updateMatrixWorld(true); const hp = headPos(), dx = x - hp.x, dz = z - hp.z, want = Math.atan2(-dx, -dz);
+  if (renderer.xr.isPresenting){ const q = new THREE.Quaternion(); camera.getWorldQuaternion(q); const f = new THREE.Vector3(0, 0, -1).applyQuaternion(q); snapTurn(want - Math.atan2(-f.x, -f.z)); }
+  else { yaw = want - dolly.rotation.y; pitch = -0.08; }
+}
+function goStation(s){ closeAssistant(); teleportTo(s); if (s.lx !== undefined) faceTo(s.lx, s.lz); }
+function nextStation(){ const n = AS.st % 6 + 1, s = STATIONS[n - 1]; goStation(s); explain(n); }
 
 function redrawAll(){ panels.forEach(p => p.redraw()); }
 
@@ -569,7 +806,7 @@ function makeController(i){
   dolly.add(c); controllers.push(c);
 }
 makeController(0); makeController(1);
-const targets = () => panels.map(p => p.mesh).concat(pads, [floor]);
+const targets = () => panels.filter(p => p.mesh.visible).map(p => p.mesh).concat(pads, [floor]);
 function castFrom(origin, dir){
   ray.set(origin, dir);
   const h = ray.intersectObjects(targets(), false)[0];
@@ -581,18 +818,19 @@ function castFrom(origin, dir){
 function onSelect(h){
   audio(); if (!h) return;
   if (h.kind === 'panel'){ if (h.idx >= 0){ const r = h.P.rects[h.idx]; if (r.fn){ r.fn(); haptic(0.3, 30); } } return; }
-  if (h.kind === 'pad'){ teleportTo(h.pad); return; }
+  if (h.kind === 'pad'){ goStation(h.pad); return; }
   if (h.kind === 'floor' && validSpot(h.point)) teleportTo(h.point);
 }
 const headPos = () => new THREE.Vector3().setFromMatrixPosition(camera.matrixWorld);
 function teleportTo(p){
-  camera.updateMatrixWorld(true); const hd = headPos();
+  dolly.updateMatrixWorld(true); const hd = headPos();
   dolly.position.x += p.x - hd.x; dolly.position.z += p.z - hd.z;
   sfx('step'); haptic(0.2, 25);
+  if (AS.open) placeAssistant();
 }
 function snapTurn(a){
-  camera.updateMatrixWorld(true); const b = headPos();
-  dolly.rotation.y += a; dolly.updateMatrixWorld(true); camera.updateMatrixWorld(true);
+  dolly.updateMatrixWorld(true); const b = headPos();
+  dolly.rotation.y += a; dolly.updateMatrixWorld(true); dolly.updateMatrixWorld(true);
   const c = headPos(); dolly.position.x += b.x - c.x; dolly.position.z += b.z - c.z;
 }
 const mouse = new THREE.Vector2(); let drag = null;
@@ -682,7 +920,7 @@ function frame_(now){
   /* grãos caindo do silo */
   { const a = fall.pts.geometry.attributes.position.array;
     for (let i = 0; i < fall.N; i++){ const p = fall.d[i]; if (S.belt){ p.u += dt * 1.2; if (p.u > 1) p.u -= 1; }
-      a[i*3] = -8.0 + p.dx; a[i*3+1] = 1.75 - p.u * 0.95; a[i*3+2] = p.dz; }
+      a[i*3] = -8.0 + p.dx; a[i*3+1] = 1.5 - p.u * 0.45; a[i*3+2] = p.dz; }
     fall.pts.geometry.attributes.position.needsUpdate = true; fall.pts.visible = S.belt; }
 
   /* feixe */
@@ -722,12 +960,13 @@ function frame_(now){
   tpMarker.visible = !!spot; if (spot){ tpMarker.position.set(spot.x, 0.03, spot.z); tpMarker.material.color.set(spotOk ? 0x4db8ff : 0xff6b5b); }
   cv.style.cursor = (hovers.size || padHover) ? 'pointer' : (spot ? (spotOk ? 'cell' : 'not-allowed') : 'grab');
 
+  animateAssistant(now);
   renderer.render(scene, camera);
 }
 renderer.setAnimationLoop(frame_);
 
 buildBlock(); refresh();
-window.__lab = { setView(y, p){ yaw = y; pitch = p; }, S, act, refresh, panels, pads, teleportTo, dolly, get ST(){ return ST; }, trays, validSpot };
+window.__lab = { setView(y, p){ yaw = y; pitch = p; }, explain, AS, closeAssistant, cap, S, act, refresh, panels, pads, teleportTo, dolly, get ST(){ return ST; }, trays, validSpot };
 })();
 </script>
 </body>
