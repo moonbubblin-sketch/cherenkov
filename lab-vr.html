@@ -608,7 +608,8 @@ const cap = Panel(1.5, 0.9, 1500, 900, (ctx, B) => {
   // linha de estado
   ctx.fillStyle = C.mut; ctx.font = '25px system-ui, sans-serif';
   const done = AS.cur >= AS.sents.length;
-  ctx.fillText(done ? 'Fim da explicação.' : (AS.mode === 'gravada' ? (AS.voiceOn ? 'Voz gravada.' : 'Som desligado: a legenda acompanha o áudio.') : AS.mode === 'carregando' ? 'Carregando…' : AS.noVoice ? 'Sem voz em português neste aparelho: a legenda avança no ritmo de leitura.' : (AS.voiceOn ? 'Falando…' : 'Voz desligada: a legenda avança no ritmo de leitura.')), 48, 728);
+  ctx.fillStyle = AS.diag ? C.warn : C.mut;
+  ctx.fillText(done ? 'Fim da explicação.' : AS.diag ? AS.diag : (AS.mode === 'gravada' ? (AS.voiceOn ? 'Voz gravada.' : 'Som desligado: a legenda acompanha o áudio.') : AS.mode === 'carregando' ? 'Carregando…' : AS.noVoice ? 'Sem voz em português neste aparelho: a legenda avança no ritmo de leitura.' : (AS.voiceOn ? 'Falando…' : 'Voz desligada: a legenda avança no ritmo de leitura.')), 48, 728);
   B(48, 764, 330, 90, done ? '✕ Fechar' : '■ Parar', { font: 'bold 34px' }, () => closeAssistant());
   B(396, 764, 330, 90, '↻ Repetir', { font: 'bold 34px' }, () => explain(AS.st));
   B(744, 764, 330, 90, AS.voiceOn ? 'Voz: ligada' : 'Voz: desligada', { on: AS.voiceOn, font: 'bold 32px' }, () => toggleVoice());
@@ -671,37 +672,43 @@ function playCurrent(){
     speechSynthesis.speak(u);
   } catch (e){ AS.noVoice = true; timed(); }
 }
-function stopRec(){ if (AS.rec){ try { AS.rec.pause(); } catch (e){} AS.rec = null; } }
+/* A voz gravada toca pelo Web Audio (o mesmo caminho dos sons do ambiente). */
+const bufCache = {};
+function getBuf(url){
+  if (bufCache[url]) return Promise.resolve(bufCache[url]);
+  return fetch(url).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+    .then(ab => new Promise((res, rej) => { const p = AC.decodeAudioData(ab, res, rej); if (p && p.catch) p.catch(rej); }))
+    .then(buf => (bufCache[url] = buf));
+}
+function stopRec(){ if (AS.rec){ try { AS.rec.src.onended = null; AS.rec.src.stop(); } catch (e){} clearInterval(AS.rec.iv); AS.rec = null; } }
 /* Procura audio/estacao-N.mp3 (sua voz) e depois audio/estacao-N.wav (voz sintética gravada).
-   Se nenhum existir, usa a síntese de voz do navegador. */
+   Se nenhum carregar, usa a síntese de voz do navegador e mostra o motivo na legenda. */
 function tryRecorded(n, tk, onFail){
-  const exts = ['mp3', 'wav']; let k = 0;
+  const a = audio(); AS.diag = '';
+  if (!a){ AS.diag = 'Este navegador não tem Web Audio.'; onFail(); return; }
+  const urls = ['audio/estacao-' + n + '.mp3', 'audio/estacao-' + n + '.wav']; let k = 0;
   const attempt = () => {
     if (tk !== AS.token) return;
-    if (k >= exts.length){ onFail(); return; }
-    const url = 'audio/estacao-' + n + '.' + exts[k++];
-    let ok = false, failed = false, to = null;
-    const fail = () => { if (failed || ok) return; failed = true; clearTimeout(to); attempt(); };
-    const a = new Audio(url); a.preload = 'auto'; a.volume = 1;
-    to = setTimeout(fail, 4000);
-    a.addEventListener('error', fail);
-    a.addEventListener('loadedmetadata', () => {
-      if (failed || tk !== AS.token) return;
-      ok = true; clearTimeout(to);
-      AS.rec = a; AS.mode = 'gravada'; AS.sents = FIXO[n]; AS.cur = 0; AS.speaking = true; a.muted = !AS.voiceOn;
+    if (k >= urls.length){ onFail(); return; }
+    const url = urls[k++];
+    getBuf(url).then(buf => {
+      if (tk !== AS.token) return;
+      const src = a.createBufferSource(), gain = a.createGain(); src.buffer = buf; gain.gain.value = AS.voiceOn ? 1 : 0;
+      src.connect(gain); gain.connect(a.destination);
+      const rec = { src, gain, t0: a.currentTime, dur: buf.duration, iv: null };
+      AS.rec = rec; AS.mode = 'gravada'; AS.sents = FIXO[n]; AS.cur = 0; AS.speaking = true; AS.diag = '';
       const total = AS.sents.reduce((t, x) => t + x.length, 0);
-      a.addEventListener('timeupdate', () => {
-        if (tk !== AS.token) return;
-        const dur = isFinite(a.duration) && a.duration > 0 ? a.duration : total * 0.09;   // sem duração conhecida: estima pelo tamanho do texto
-        const pos = Math.min(1, a.currentTime / dur) * total; let acc = 0, idx = AS.sents.length - 1;
+      rec.iv = setInterval(() => {
+        if (tk !== AS.token){ clearInterval(rec.iv); return; }
+        const pos = Math.min(1, (a.currentTime - rec.t0) / rec.dur) * total; let acc = 0, idx = AS.sents.length - 1;
         for (let i = 0; i < AS.sents.length; i++){ acc += AS.sents[i].length; if (pos <= acc){ idx = i; break; } }
         if (idx !== AS.cur){ AS.cur = idx; cap.redraw(); }
-      });
-      a.addEventListener('ended', () => { if (tk !== AS.token) return; AS.cur = AS.sents.length; AS.speaking = false; AS.rec = null; cap.redraw(); });
+      }, 120);
+      src.onended = () => { if (tk !== AS.token) return; clearInterval(rec.iv); AS.cur = AS.sents.length; AS.speaking = false; AS.rec = null; cap.redraw(); };
+      src.start();
+      if (a.state !== 'running'){ AS.diag = 'Som bloqueado pelo navegador: aperte outro botão para liberar.'; a.resume().then(() => { if (tk === AS.token){ AS.diag = ''; cap.redraw(); } }).catch(() => {}); }
       cap.redraw();
-      const p = a.play();
-      if (p && p.catch) p.catch(() => { if (tk !== AS.token) return; AS.rec = null; AS.speaking = false; AS.mode = 'voz'; onFail(); });
-    });
+    }).catch(err => { AS.diag = 'Não carreguei ' + url + ' (' + ((err && err.message) || err) + ').'; attempt(); });
   };
   attempt();
 }
@@ -723,7 +730,7 @@ function closeAssistant(){
   AS.token++; clearTimeout(AS.timer); clearTimeout(AS.wd); cancelSpeech(); stopRec();
   AS.open = false; AS.speaking = false; cap.mesh.visible = false; bot.visible = false; cap.hover = -1;
 }
-function toggleVoice(){ AS.voiceOn = !AS.voiceOn; if (AS.rec){ AS.rec.muted = !AS.voiceOn; cap.redraw(); return; } if (!AS.voiceOn) cancelSpeech(); const n = AS.st; if (AS.open && AS.cur < AS.sents.length){ AS.token++; clearTimeout(AS.timer); cancelSpeech(); setTimeout(playCurrent, 120); } cap.redraw(); }
+function toggleVoice(){ AS.voiceOn = !AS.voiceOn; if (AS.rec){ AS.rec.gain.gain.value = AS.voiceOn ? 1 : 0; cap.redraw(); return; } if (!AS.voiceOn) cancelSpeech(); const n = AS.st; if (AS.open && AS.cur < AS.sents.length){ AS.token++; clearTimeout(AS.timer); cancelSpeech(); setTimeout(playCurrent, 120); } cap.redraw(); }
 function faceTo(x, z){
   dolly.updateMatrixWorld(true); const hp = headPos(), dx = x - hp.x, dz = z - hp.z, want = Math.atan2(-dx, -dz);
   if (renderer.xr.isPresenting){ const q = new THREE.Quaternion(); camera.getWorldQuaternion(q); const f = new THREE.Vector3(0, 0, -1).applyQuaternion(q); snapTurn(want - Math.atan2(-f.x, -f.z)); }
@@ -754,19 +761,25 @@ function audio(){
   if (!AC){ try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e){} }
   if (AC && AC.state === 'suspended') AC.resume();
   if (AC && !hum){ try {
+    // ambiente suave: ruído de ar filtrado (ventilação) + um tom grave bem baixinho
     const g = AC.createGain(); g.gain.value = 0; g.connect(AC.destination);
-    const o1 = AC.createOscillator(), o2 = AC.createOscillator(); o1.type = 'sawtooth'; o2.type = 'sine'; o1.frequency.value = 110; o2.frequency.value = 220;
-    const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 900; o1.connect(f); f.connect(g); o2.connect(g); o1.start(); o2.start(); hum = { g };
+    const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 600; f.connect(g);
+    const len = AC.sampleRate * 2, nb = AC.createBuffer(1, len, AC.sampleRate), dd = nb.getChannelData(0); let last = 0;
+    for (let i = 0; i < len; i++){ const w = Math.random() * 2 - 1; last = (last + 0.02 * w) / 1.02; dd[i] = last * 3.5; }
+    const ns = AC.createBufferSource(); ns.buffer = nb; ns.loop = true; ns.connect(f); ns.start();
+    const o = AC.createOscillator(); o.type = 'sine'; o.frequency.value = 150; const og = AC.createGain(); og.gain.value = 0.12; o.connect(og); og.connect(g); o.start();
+    hum = { g };
   } catch (e){} }
   return AC;
 }
 function tone(f, d, type, vol, t0){
   const a = audio(); if (!a || !S.sound) return;
   const o = a.createOscillator(), g = a.createGain(), t = a.currentTime + (t0 || 0);
-  o.type = type || 'sine'; o.frequency.value = f; g.gain.setValueAtTime((vol || 0.05) * 3, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+  o.type = type || 'sine'; o.frequency.value = f;
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol || 0.04, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
   o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + d + 0.02);
 }
-function sfx(k){ try { if (k === 'click') tone(660, 0.07, 'square', 0.03); else if (k === 'step') tone(330, 0.09, 'triangle', 0.04); } catch (e){} }
+function sfx(k){ try { if (k === 'click') tone(520, 0.14, 'sine', 0.045); else if (k === 'step') tone(260, 0.2, 'sine', 0.045); } catch (e){} }
 function haptic(v, ms){ controllers.forEach(c => { try { const a = c.userData.gamepad && c.userData.gamepad.hapticActuators; if (a && a[0]) a[0].pulse(v, ms); } catch (e){} }); }
 
 /* ============================================================
@@ -947,7 +960,7 @@ function frame_(now){
   const blink = on ? (0.5 + 0.5 * Math.sin(scanT * 7)) : 0;
   warnLamp.material.color.setRGB(on ? 0.35 + 0.65 * blink : 0.25, on ? 0.05 + 0.1 * blink : 0.05, 0.05); warnLight.intensity = on ? 1.6 * blink : 0;
   if (lastBeam !== on){ lastBeam = on; sign.redraw(); }
-  if (hum) hum.g.gain.value = S.sound ? (on ? 0.07 : 0.03) * (S.belt ? 1 : 0.6) : 0;
+  if (hum && AC) hum.g.gain.setTargetAtTime(S.sound ? (on ? 0.1 : 0.06) * (S.belt ? 1 : 0.6) : 0, AC.currentTime, 0.4);
   bugs.forEach((b, i) => { if (i < ny && b.alive){ b.m.position.x = b.x + Math.sin(now / 400 + b.ph) * 0.012; b.m.rotation.y = Math.sin(now / 300 + b.ph) * 0.5; } });
 
   /* raios, hover e marcador de teleporte */
