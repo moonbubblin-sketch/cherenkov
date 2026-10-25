@@ -425,7 +425,7 @@ Panel(0.96, 0.96, 768, 768, (ctx, B) => {
   B(520, 640, 90, 70, '−', {}, () => act.T(-1)); B(630, 640, 90, 70, '+', {}, () => act.T(1));
   ctx.fillStyle = okR ? C.ok : C.bad; ctx.font = '23px system-ui, sans-serif';
   ctx.fillText('Alcance no grão: ' + f1(R) + ' cm · ' + (okR ? 'o feixe chega ao fundo' : 'não chega ao fundo'), 38, 742);
-}, [1.0, 1.12, 3.85], { face: [1.0, 9], tilt: -0.95 });
+}, [1.0, 1.22, 3.97], { face: [1.0, 9], tilt: -1.15 });
 
 /* --- monitor: resultado do lote --- */
 Panel(0.9, 0.78, 720, 624, (ctx) => {
@@ -441,7 +441,7 @@ Panel(0.9, 0.78, 720, 624, (ctx) => {
   const vivos = bugs.filter((b, i) => i < ny && b.alive).length;
   ctx.fillStyle = vivos ? C.warn : C.ok; ctx.font = 'bold 28px system-ui, sans-serif'; ctx.fillText('Insetos sobreviventes na bancada: ' + vivos + ' de ' + ny, 36, y + 28);
   tag(ctx, 36, 560, 'meta e doses: demonstração', C.warn); tag(ctx, 36 + 330, 560, 'curva: ilustrativa', C.warn);
-}, [2.75, 1.1, 3.95], { face: [1.0, 9], tilt: -0.9 });
+}, [2.75, 1.2, 3.97], { face: [1.0, 9], tilt: -1.15 });
 
 /* --- visita guiada --- */
 const STATIONS = [
@@ -462,7 +462,7 @@ Panel(0.96, 0.96, 768, 768, (ctx, B) => {
   tag(ctx, 38, y + 76, 'forma da curva de dose: ilustrativa', C.warn);
   tag(ctx, 38, y + 122, 'fábrica, feixe, metas e doses: demonstração', C.warn);
   B(38, 690, 692, 58, '▶ Explicar a sala de controle', { on: true, col: C.ok, hot: '#7dffbf', font: 'bold 28px' }, () => explain(1));
-}, [-0.55, 1.1, 3.85], { face: [1.0, 9], tilt: -0.9 });
+}, [-0.55, 1.22, 3.97], { face: [1.0, 9], tilt: -1.15 });
 
 /* --- bancada --- */
 Panel(0.9, 0.9, 720, 720, (ctx, B) => {
@@ -615,6 +615,7 @@ const cap = Panel(1.5, 0.9, 1500, 900, (ctx, B) => {
   B(1092, 764, 360, 90, 'Próxima ▶', { on: true, col: C.ok, hot: '#7dffbf', font: 'bold 34px' }, () => nextStation());
 }, [0, 1.2, 0], {});
 cap.mesh.visible = false;
+cap.mesh.material.depthTest = false; cap.mesh.renderOrder = 999;   // a legenda sempre aparece por cima, sem 'brigar' com painéis e mesa
 
 /* --- avatar --- */
 const bot = new THREE.Group(); bot.visible = false; scene.add(bot);
@@ -631,9 +632,10 @@ function placeAssistant(){
   const hp = headPos(), q = new THREE.Quaternion(); camera.getWorldQuaternion(q);
   const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(q); fwd.y = 0; if (fwd.lengthSq() < 1e-4) fwd.set(0, 0, -1); fwd.normalize();
   const right = new THREE.Vector3().crossVectors(fwd, new THREE.Vector3(0, 1, 0));
-  cap.mesh.position.copy(hp).addScaledVector(fwd, 1.55); cap.mesh.position.y = Math.max(0.95, hp.y - 0.4);
+  cap.mesh.scale.setScalar(0.78);
+  cap.mesh.position.copy(hp).addScaledVector(fwd, 1.05); cap.mesh.position.y = Math.max(0.95, hp.y - 0.3);
   cap.mesh.lookAt(hp.x, cap.mesh.position.y, hp.z);
-  botHome.copy(hp).addScaledVector(fwd, 1.25).addScaledVector(right, -0.98); botHome.y = hp.y - 0.15;
+  botHome.copy(hp).addScaledVector(fwd, 1.0).addScaledVector(right, -0.82); botHome.y = hp.y - 0.12;
   if (!bot.visible) bot.position.copy(botHome);
 }
 function animateAssistant(now){
@@ -670,28 +672,38 @@ function playCurrent(){
   } catch (e){ AS.noVoice = true; timed(); }
 }
 function stopRec(){ if (AS.rec){ try { AS.rec.pause(); } catch (e){} AS.rec = null; } }
-/* Procura audio/estacao-N.mp3. Se existir, é a sua voz; senão, usa a síntese de voz do navegador. */
+/* Procura audio/estacao-N.mp3 (sua voz) e depois audio/estacao-N.wav (voz sintética gravada).
+   Se nenhum existir, usa a síntese de voz do navegador. */
 function tryRecorded(n, tk, onFail){
-  let ok = false, failed = false;
-  const fail = () => { if (failed || ok) return; failed = true; clearTimeout(to); if (tk === AS.token) onFail(); };
-  const a = new Audio('audio/estacao-' + n + '.mp3'); a.preload = 'auto';
-  const to = setTimeout(fail, 3000);
-  a.addEventListener('error', fail);
-  a.addEventListener('loadedmetadata', () => {
-    if (failed || tk !== AS.token) return;
-    ok = true; clearTimeout(to);
-    AS.rec = a; AS.mode = 'gravada'; AS.sents = FIXO[n]; AS.cur = 0; AS.speaking = true; a.muted = !AS.voiceOn;
-    const total = AS.sents.reduce((t, x) => t + x.length, 0);
-    a.addEventListener('timeupdate', () => {
-      if (tk !== AS.token || !a.duration) return;
-      const pos = a.currentTime / a.duration * total; let acc = 0, idx = AS.sents.length - 1;
-      for (let i = 0; i < AS.sents.length; i++){ acc += AS.sents[i].length; if (pos <= acc){ idx = i; break; } }
-      if (idx !== AS.cur){ AS.cur = idx; cap.redraw(); }
+  const exts = ['mp3', 'wav']; let k = 0;
+  const attempt = () => {
+    if (tk !== AS.token) return;
+    if (k >= exts.length){ onFail(); return; }
+    const url = 'audio/estacao-' + n + '.' + exts[k++];
+    let ok = false, failed = false, to = null;
+    const fail = () => { if (failed || ok) return; failed = true; clearTimeout(to); attempt(); };
+    const a = new Audio(url); a.preload = 'auto'; a.volume = 1;
+    to = setTimeout(fail, 4000);
+    a.addEventListener('error', fail);
+    a.addEventListener('loadedmetadata', () => {
+      if (failed || tk !== AS.token) return;
+      ok = true; clearTimeout(to);
+      AS.rec = a; AS.mode = 'gravada'; AS.sents = FIXO[n]; AS.cur = 0; AS.speaking = true; a.muted = !AS.voiceOn;
+      const total = AS.sents.reduce((t, x) => t + x.length, 0);
+      a.addEventListener('timeupdate', () => {
+        if (tk !== AS.token) return;
+        const dur = isFinite(a.duration) && a.duration > 0 ? a.duration : total * 0.09;   // sem duração conhecida: estima pelo tamanho do texto
+        const pos = Math.min(1, a.currentTime / dur) * total; let acc = 0, idx = AS.sents.length - 1;
+        for (let i = 0; i < AS.sents.length; i++){ acc += AS.sents[i].length; if (pos <= acc){ idx = i; break; } }
+        if (idx !== AS.cur){ AS.cur = idx; cap.redraw(); }
+      });
+      a.addEventListener('ended', () => { if (tk !== AS.token) return; AS.cur = AS.sents.length; AS.speaking = false; AS.rec = null; cap.redraw(); });
+      cap.redraw();
+      const p = a.play();
+      if (p && p.catch) p.catch(() => { if (tk !== AS.token) return; AS.rec = null; AS.speaking = false; AS.mode = 'voz'; onFail(); });
     });
-    a.addEventListener('ended', () => { if (tk !== AS.token) return; AS.cur = AS.sents.length; AS.speaking = false; AS.rec = null; cap.redraw(); });
-    cap.redraw();
-    const p = a.play(); if (p && p.catch) p.catch(() => { AS.rec = null; AS.mode = 'voz'; AS.sents = SCRIPT[n](); AS.cur = 0; onFail(true); });
-  });
+  };
+  attempt();
 }
 function explain(n){
   audio();
@@ -743,15 +755,15 @@ function audio(){
   if (AC && AC.state === 'suspended') AC.resume();
   if (AC && !hum){ try {
     const g = AC.createGain(); g.gain.value = 0; g.connect(AC.destination);
-    const o1 = AC.createOscillator(), o2 = AC.createOscillator(); o1.type = 'sawtooth'; o2.type = 'sine'; o1.frequency.value = 58; o2.frequency.value = 116;
-    const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 260; o1.connect(f); f.connect(g); o2.connect(g); o1.start(); o2.start(); hum = { g };
+    const o1 = AC.createOscillator(), o2 = AC.createOscillator(); o1.type = 'sawtooth'; o2.type = 'sine'; o1.frequency.value = 110; o2.frequency.value = 220;
+    const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 900; o1.connect(f); f.connect(g); o2.connect(g); o1.start(); o2.start(); hum = { g };
   } catch (e){} }
   return AC;
 }
 function tone(f, d, type, vol, t0){
   const a = audio(); if (!a || !S.sound) return;
   const o = a.createOscillator(), g = a.createGain(), t = a.currentTime + (t0 || 0);
-  o.type = type || 'sine'; o.frequency.value = f; g.gain.setValueAtTime(vol || 0.05, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+  o.type = type || 'sine'; o.frequency.value = f; g.gain.setValueAtTime((vol || 0.05) * 3, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
   o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + d + 0.02);
 }
 function sfx(k){ try { if (k === 'click') tone(660, 0.07, 'square', 0.03); else if (k === 'step') tone(330, 0.09, 'triangle', 0.04); } catch (e){} }
@@ -935,7 +947,7 @@ function frame_(now){
   const blink = on ? (0.5 + 0.5 * Math.sin(scanT * 7)) : 0;
   warnLamp.material.color.setRGB(on ? 0.35 + 0.65 * blink : 0.25, on ? 0.05 + 0.1 * blink : 0.05, 0.05); warnLight.intensity = on ? 1.6 * blink : 0;
   if (lastBeam !== on){ lastBeam = on; sign.redraw(); }
-  if (hum) hum.g.gain.value = S.sound ? (on ? 0.035 : 0.012) * (S.belt ? 1 : 0.6) : 0;
+  if (hum) hum.g.gain.value = S.sound ? (on ? 0.07 : 0.03) * (S.belt ? 1 : 0.6) : 0;
   bugs.forEach((b, i) => { if (i < ny && b.alive){ b.m.position.x = b.x + Math.sin(now / 400 + b.ph) * 0.012; b.m.rotation.y = Math.sin(now / 300 + b.ph) * 0.5; } });
 
   /* raios, hover e marcador de teleporte */
