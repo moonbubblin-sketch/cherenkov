@@ -680,7 +680,7 @@ function getBuf(url){
     .then(ab => new Promise((res, rej) => { const p = AC.decodeAudioData(ab, res, rej); if (p && p.catch) p.catch(rej); }))
     .then(buf => (bufCache[url] = buf));
 }
-function stopRec(){ if (AS.rec){ try { AS.rec.src.onended = null; AS.rec.src.stop(); } catch (e){} clearInterval(AS.rec.iv); AS.rec = null; } }
+function stopRec(){ if (AS.rec){ try { if (AS.rec.el) AS.rec.el.pause(); else { AS.rec.src.onended = null; AS.rec.src.stop(); } } catch (e){} clearInterval(AS.rec.iv); AS.rec = null; } }
 /* Procura audio/estacao-N.mp3 (sua voz) e depois audio/estacao-N.wav (voz sintética gravada).
    Se nenhum carregar, usa a síntese de voz do navegador e mostra o motivo na legenda. */
 function tryRecorded(n, tk, onFail){
@@ -708,7 +708,31 @@ function tryRecorded(n, tk, onFail){
       src.start();
       if (a.state !== 'running'){ AS.diag = 'Som bloqueado pelo navegador: aperte outro botão para liberar.'; a.resume().then(() => { if (tk === AS.token){ AS.diag = ''; cap.redraw(); } }).catch(() => {}); }
       cap.redraw();
-    }).catch(err => { AS.diag = 'Não carreguei ' + url + ' (' + ((err && err.message) || err) + ').'; attempt(); });
+    }).catch(err => {
+      const msg = ((err && err.message) || String(err));
+      if (/fetch|network|load failed/i.test(msg)){        // fetch bloqueado (ex.: página aberta como arquivo): tenta o elemento de áudio
+        const el = new Audio(url); el.preload = 'auto'; let done = false;
+        const bad = () => { if (done) return; done = true; AS.diag = 'Não carreguei ' + url + ' (' + msg + ').'; attempt(); };
+        el.addEventListener('error', bad); setTimeout(bad, 4000);
+        el.addEventListener('loadedmetadata', () => {
+          if (done || tk !== AS.token) return; done = true;
+          const rec = { el, iv: null }; AS.rec = rec; AS.mode = 'gravada'; AS.sents = FIXO[n]; AS.cur = 0; AS.speaking = true; AS.diag = ''; el.muted = !AS.voiceOn;
+          const total = AS.sents.reduce((t, x) => t + x.length, 0);
+          rec.iv = setInterval(() => {
+            if (tk !== AS.token){ clearInterval(rec.iv); return; }
+            const dur = isFinite(el.duration) && el.duration > 0 ? el.duration : total * 0.07;
+            const pos = Math.min(1, el.currentTime / dur) * total; let acc = 0, idx = AS.sents.length - 1;
+            for (let i = 0; i < AS.sents.length; i++){ acc += AS.sents[i].length; if (pos <= acc){ idx = i; break; } }
+            if (idx !== AS.cur){ AS.cur = idx; cap.redraw(); }
+          }, 120);
+          el.addEventListener('ended', () => { if (tk !== AS.token) return; clearInterval(rec.iv); AS.cur = AS.sents.length; AS.speaking = false; AS.rec = null; cap.redraw(); });
+          const p = el.play(); if (p && p.catch) p.catch(() => { AS.diag = 'Som bloqueado: aperte outro botão e tente de novo.'; cap.redraw(); });
+          cap.redraw();
+        });
+        return;
+      }
+      AS.diag = 'Não carreguei ' + url + ' (' + msg + ').'; attempt();
+    });
   };
   attempt();
 }
@@ -730,7 +754,7 @@ function closeAssistant(){
   AS.token++; clearTimeout(AS.timer); clearTimeout(AS.wd); cancelSpeech(); stopRec();
   AS.open = false; AS.speaking = false; cap.mesh.visible = false; bot.visible = false; cap.hover = -1;
 }
-function toggleVoice(){ AS.voiceOn = !AS.voiceOn; if (AS.rec){ AS.rec.gain.gain.value = AS.voiceOn ? 1 : 0; cap.redraw(); return; } if (!AS.voiceOn) cancelSpeech(); const n = AS.st; if (AS.open && AS.cur < AS.sents.length){ AS.token++; clearTimeout(AS.timer); cancelSpeech(); setTimeout(playCurrent, 120); } cap.redraw(); }
+function toggleVoice(){ AS.voiceOn = !AS.voiceOn; if (AS.rec){ if (AS.rec.el) AS.rec.el.muted = !AS.voiceOn; else AS.rec.gain.gain.value = AS.voiceOn ? 1 : 0; cap.redraw(); return; } if (!AS.voiceOn) cancelSpeech(); const n = AS.st; if (AS.open && AS.cur < AS.sents.length){ AS.token++; clearTimeout(AS.timer); cancelSpeech(); setTimeout(playCurrent, 120); } cap.redraw(); }
 function faceTo(x, z){
   dolly.updateMatrixWorld(true); const hp = headPos(), dx = x - hp.x, dz = z - hp.z, want = Math.atan2(-dx, -dz);
   if (renderer.xr.isPresenting){ const q = new THREE.Quaternion(); camera.getWorldQuaternion(q); const f = new THREE.Vector3(0, 0, -1).applyQuaternion(q); snapTurn(want - Math.atan2(-f.x, -f.z)); }
